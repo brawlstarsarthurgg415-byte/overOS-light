@@ -73,7 +73,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Compactar
-        run: xz -T0 -4 overos-light.img
+        run: xz -T0 -4 -c overos-light.img > overos-light.img.xz
 
       - name: Publicar a release
         env:
