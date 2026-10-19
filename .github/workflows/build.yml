@@ -1,8 +1,5 @@
 name: Gerar OverOS Light
 
-# Roda na nuvem do GitHub (que tem root, internet e loop devices).
-# Para iniciar: aba Actions > "Gerar OverOS Light" > Run workflow
-# (ou, no Termux:  gh workflow run build.yml)
 on:
   workflow_dispatch:
 
@@ -27,7 +24,7 @@ jobs:
           chmod +x build-overos-light.sh gravar-pendrive.sh \
             overlay/usr/local/bin/overos-testes overlay/usr/local/sbin/overos-growfs
           sudo ./build-overos-light.sh
-          sudo chown -R "$USER" overos-light.img work
+          sudo chown -R "$(id -u):$(id -g)" overos-light.img work
           ls -la overos-light.img
           cat work/avisos.txt || true
 
@@ -52,7 +49,6 @@ jobs:
           sudo mkdir -p /mnt/conf
           L="$(sudo losetup --find --show --partscan teste-boot.img)"
           sudo mount "${L}p1" /mnt/conf
-          # só nesta cópia de teste: manda as mensagens do boot para a porta serial
           sudo sed -i 's/quiet loglevel=3/console=ttyS0,115200 loglevel=4/' /mnt/conf/boot/grub/grub.cfg
           sudo umount /mnt/conf
           sudo losetup -d "$L"
@@ -73,7 +69,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Compactar
-        run: xz -T0 -4 overos-light.img
+        run: xz -T0 -4 -c overos-light.img > overos-light.img.xz
 
       - name: Publicar a release
         env:
