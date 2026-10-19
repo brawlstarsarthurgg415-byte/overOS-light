@@ -38,11 +38,10 @@ jobs:
           test -e /mnt/conf/vmlinuz || ls /mnt/conf/boot/vmlinuz-*
           test -x /mnt/conf/usr/local/bin/overos-testes
           test -d /mnt/conf/home/overos
-          echo "--- grub.cfg ---"; cat /mnt/conf/boot/grub/grub.cfg
           sudo umount /mnt/conf
           sudo losetup -d "$L"
 
-      - name: Teste de boot no QEMU (informativo, não bloqueia)
+      - name: Teste de boot rápido no QEMU (informativo, não bloqueia)
         continue-on-error: true
         run: |
           cp overos-light.img teste-boot.img
@@ -52,13 +51,22 @@ jobs:
           sudo sed -i 's/quiet loglevel=3/console=ttyS0,115200 loglevel=4/' /mnt/conf/boot/grub/grub.cfg
           sudo umount /mnt/conf
           sudo losetup -d "$L"
-          timeout 300 qemu-system-x86_64 -m 768 -smp 2 -nographic \
-            -drive file=teste-boot.img,format=raw -serial mon:stdio \
-            | tee boot.log || true
-          echo "--- procurando sinais de boot completo ---"
-          grep -E "login:|Reached target|Started.*Getty" boot.log | tail -n 5
-          grep -qE "login:|Reached target Multi-User" boot.log
+          qemu-system-x86_64 -m 768 -smp 2 -display none -monitor none \
+            -serial file:boot.log \
+            -drive file=teste-boot.img,format=raw &
+          QPID=$!
+          OK=0
+          for i in $(seq 1 100); do
+            if grep -qE "login:|Reached target Multi-User" boot.log 2>/dev/null; then
+              OK=1
+              break
+            fi
+            sleep 3
+          done
+          kill "$QPID" 2>/dev/null || true
+          tail -n 15 boot.log || true
           rm -f teste-boot.img
+          [ "$OK" = "1" ]
 
       - name: Guardar o log do teste de boot
         if: always()
