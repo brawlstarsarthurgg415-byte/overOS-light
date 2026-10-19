@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# OverOS Light - no primeiro boot, estica a partição até ocupar todo o pendrive.
+set -e
+
+ORIGEM="$(readlink -f "$(findmnt -n -o SOURCE /)")"
+case "$ORIGEM" in /dev/*) ;; *) exit 0 ;; esac
+
+NOME="${ORIGEM#/dev/}"
+DISCO="/dev/$(lsblk -no PKNAME "$ORIGEM" | head -n1)"
+NUM="$(cat "/sys/class/block/$NOME/partition")"
+
+growpart "$DISCO" "$NUM" || true   # sai com erro quando já está no tamanho máximo
+resize2fs "$ORIGEM"
+
+mkdir -p /var/lib/overos
+touch /var/lib/overos/growfs.done

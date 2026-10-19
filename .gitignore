@@ -1,0 +1,4 @@
+work/
+*.img
+*.img.xz
+boot.log

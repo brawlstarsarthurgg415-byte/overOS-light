@@ -1,0 +1,12 @@
+# OverOS Light - o que abre junto com a interface
+xsetroot -solid "#1b2a41" &
+tint2 &
+
+# liga o som (se o notebook deixar mudo)
+amixer -q sset Master unmute 2>/dev/null
+amixer -q sset Speaker unmute 2>/dev/null
+
+# Modo de teste: abre o menu de testes sozinho
+if grep -q 'overos.modo=teste' /proc/cmdline; then
+  lxterminal -e overos-testes &
+fi

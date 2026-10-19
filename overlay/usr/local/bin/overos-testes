@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  OverOS Light Version - menu de testes do notebook
+#  Abra pelo menu da interface (botão direito) ou digite:  overos-testes
+# =============================================================================
+
+pausa() { echo; read -r -p "Aperte Enter para voltar ao menu... " _; }
+titulo() { clear; echo "=== $* ==="; echo; }
+
+teste_usb() {
+  titulo "TESTE DE USB"
+  echo "Dispositivos USB que o sistema enxerga:"
+  lsusb
+  echo
+  echo "Discos e pendrives:"
+  lsblk -o NAME,SIZE,TYPE,TRAN,MODEL
+  echo
+  echo "Dica: espete outro pendrive ou um mouse e rode este teste de novo."
+  echo "Se aparecer na lista, a porta USB está funcionando."
+  pausa
+}
+
+teste_webcam() {
+  titulo "TESTE DE WEBCAM"
+  if [ -z "${DISPLAY:-}" ]; then
+    echo "Este teste precisa da interface gráfica (boot Normal ou Modo de teste)."
+    pausa; return
+  fi
+  if ! ls /dev/video* >/dev/null 2>&1; then
+    echo "Nenhuma webcam encontrada (/dev/video*)."
+    pausa; return
+  fi
+  echo "Câmeras encontradas:"
+  v4l2-ctl --list-devices 2>/dev/null || ls /dev/video*
+  echo
+  echo "Abrindo a imagem. Aperte Q na janela para fechar."
+  mpv --no-config --vo=x11 --profile=low-latency --untimed av://v4l2:/dev/video0 \
+    || echo "Não consegui abrir a câmera."
+  pausa
+}
+
+teste_microfone() {
+  titulo "TESTE DE MICROFONE"
+  amixer -q sset Capture cap 2>/dev/null
+  amixer -q sset Mic unmute 2>/dev/null
+  echo "Fale algo: gravando por 5 segundos..."
+  if arecord -q -d 5 -f S16_LE -r 44100 -c 1 /tmp/teste-mic.wav; then
+    echo "Tocando o que foi gravado..."
+    aplay -q /tmp/teste-mic.wav
+    rm -f /tmp/teste-mic.wav
+    echo "Se você ouviu a sua voz, o microfone e a caixinha funcionam."
+  else
+    echo "Não consegui gravar. O notebook pode não ter microfone reconhecido."
+  fi
+  pausa
+}
+
+teste_som() {
+  titulo "TESTE DA CAIXINHA DE SOM"
+  amixer -q sset Master unmute 2>/dev/null
+  amixer -q sset Speaker unmute 2>/dev/null
+  echo "Vai sair uma voz dizendo 'Front Left' e 'Front Right'."
+  speaker-test -t wav -c 2 -l 1
+  pausa
+}
+
+teste_bateria() {
+  titulo "TESTE DA BATERIA"
+  acpi -b -a -V 2>/dev/null || echo "O comando acpi não achou bateria."
+  echo
+  BAT="$(upower -e 2>/dev/null | grep -m1 -i bat)"
+  if [ -n "$BAT" ]; then
+    upower -i "$BAT" | grep -E 'state|percentage|energy|capacity|time to'
+  fi
+  echo
+  echo "'capacity' baixo (bem menos de 100%) quer dizer bateria gasta."
+  pausa
+}
+
+teste_internet() {
+  titulo "TESTE DE INTERNET"
+  echo "Placas de rede:"
+  nmcli -f DEVICE,TYPE,STATE device 2>/dev/null
+  echo
+  echo "Ping (internet):"
+  ping -c 3 -W 3 1.1.1.1
+  echo
+  echo "Ping (nomes, testa o DNS):"
+  ping -c 3 -W 3 debian.org
+  echo
+  echo "Redes Wi-Fi por perto:"
+  nmcli device wifi rescan 2>/dev/null
+  sleep 2
+  nmcli -f SSID,SIGNAL,SECURITY device wifi list 2>/dev/null || echo "(sem Wi-Fi funcionando)"
+  echo
+  echo "Para conectar numa rede, digite no terminal:  nmtui"
+  echo "Sem Wi-Fi? Use cabo de rede ou o celular com tethering USB."
+  pausa
+}
+
+teste_memoria() {
+  titulo "TESTE DE MEMÓRIA RAM"
+  free -h
+  MB="$(awk '/MemAvailable/ {print int($2/1024/2)}' /proc/meminfo)"
+  echo
+  echo "Vou testar ${MB} MB (metade da RAM livre), 1 passada."
+  echo "Qualquer 'FAILURE' abaixo quer dizer RAM com defeito."
+  echo
+  sudo memtester "${MB}M" 1
+  pausa
+}
+
+teste_temperatura() {
+  titulo "TEMPERATURA"
+  sensors 2>/dev/null
+  for z in /sys/class/thermal/thermal_zone*/temp; do
+    [ -r "$z" ] && echo "$(basename "$(dirname "$z")"): $(($(cat "$z") / 1000)) °C"
+  done
+  echo
+  echo "Acima de uns 85 °C é perigoso: confira a ventoinha."
+  pausa
+}
+
+teste_pendrive() {
+  titulo "VELOCIDADE DO PENDRIVE"
+  RAIZ="$(findmnt -n -o SOURCE /)"
+  echo "Disco do sistema: $RAIZ"
+  echo
+  echo "Leitura:"
+  sudo hdparm -t "$RAIZ"
+  echo
+  echo "Escrita (64 MB):"
+  dd if=/dev/zero of="$HOME/.teste-escrita" bs=1M count=64 conv=fsync 2>&1 | tail -n1
+  rm -f "$HOME/.teste-escrita"
+  pausa
+}
+
+teste_info() {
+  titulo "INFORMAÇÕES DO SISTEMA"
+  if command -v fastfetch >/dev/null 2>&1; then fastfetch; else uname -a; free -h; fi
+  pausa
+}
+
+while true; do
+  OP="$(whiptail --title "OverOS Light - Testes" \
+        --menu "Escolha um teste (setas + Enter):" 21 66 11 \
+        1 "USB" \
+        2 "Webcam" \
+        3 "Microfone" \
+        4 "Caixinha de som" \
+        5 "Bateria" \
+        6 "Internet / Wi-Fi" \
+        7 "Memória RAM" \
+        8 "Temperatura" \
+        9 "Velocidade do pendrive" \
+        10 "Informações do sistema" \
+        0 "Sair" 3>&1 1>&2 2>&3)" || break
+  case "$OP" in
+    1) teste_usb ;;
+    2) teste_webcam ;;
+    3) teste_microfone ;;
+    4) teste_som ;;
+    5) teste_bateria ;;
+    6) teste_internet ;;
+    7) teste_memoria ;;
+    8) teste_temperatura ;;
+    9) teste_pendrive ;;
+    10) teste_info ;;
+    0) break ;;
+  esac
+done
+clear

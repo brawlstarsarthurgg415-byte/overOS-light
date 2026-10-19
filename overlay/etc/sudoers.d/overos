@@ -1,0 +1,2 @@
+# OverOS Light - só estes comandos sem senha (desligar, reiniciar e testes)
+overos ALL=(root) NOPASSWD: /usr/bin/systemctl poweroff, /usr/bin/systemctl reboot, /usr/bin/memtester, /usr/sbin/hdparm

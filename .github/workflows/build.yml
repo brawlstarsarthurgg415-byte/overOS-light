@@ -1,0 +1,86 @@
+name: Gerar OverOS Light
+
+# Roda na nuvem do GitHub (que tem root, internet e loop devices).
+# Para iniciar: aba Actions > "Gerar OverOS Light" > Run workflow
+# (ou, no Termux:  gh workflow run build.yml)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar ferramentas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap parted rsync e2fsprogs grub-pc-bin \
+            grub-common udev debian-archive-keyring xz-utils qemu-system-x86
+
+      - name: Gerar a imagem
+        run: |
+          chmod +x build-overos-light.sh gravar-pendrive.sh \
+            overlay/usr/local/bin/overos-testes overlay/usr/local/sbin/overos-growfs
+          sudo ./build-overos-light.sh
+          sudo chown -R "$USER" overos-light.img work
+          ls -la overos-light.img
+          cat work/avisos.txt || true
+
+      - name: Conferência básica da imagem
+        run: |
+          set -e
+          sudo mkdir -p /mnt/conf
+          L="$(sudo losetup --find --show --partscan overos-light.img)"
+          sudo mount "${L}p1" /mnt/conf
+          test -e /mnt/conf/boot/grub/grub.cfg
+          test -e /mnt/conf/vmlinuz || ls /mnt/conf/boot/vmlinuz-*
+          test -x /mnt/conf/usr/local/bin/overos-testes
+          test -d /mnt/conf/home/overos
+          echo "--- grub.cfg ---"; cat /mnt/conf/boot/grub/grub.cfg
+          sudo umount /mnt/conf
+          sudo losetup -d "$L"
+
+      - name: Teste de boot no QEMU (informativo, não bloqueia)
+        continue-on-error: true
+        run: |
+          cp overos-light.img teste-boot.img
+          sudo mkdir -p /mnt/conf
+          L="$(sudo losetup --find --show --partscan teste-boot.img)"
+          sudo mount "${L}p1" /mnt/conf
+          # só nesta cópia de teste: manda as mensagens do boot para a porta serial
+          sudo sed -i 's/quiet loglevel=3/console=ttyS0,115200 loglevel=4/' /mnt/conf/boot/grub/grub.cfg
+          sudo umount /mnt/conf
+          sudo losetup -d "$L"
+          timeout 300 qemu-system-x86_64 -m 768 -smp 2 -nographic \
+            -drive file=teste-boot.img,format=raw -serial mon:stdio \
+            | tee boot.log || true
+          echo "--- procurando sinais de boot completo ---"
+          grep -E "login:|Reached target|Started.*Getty" boot.log | tail -n 5
+          grep -qE "login:|Reached target Multi-User" boot.log
+          rm -f teste-boot.img
+
+      - name: Guardar o log do teste de boot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: log-boot
+          path: boot.log
+          if-no-files-found: ignore
+
+      - name: Compactar
+        run: xz -T0 -4 overos-light.img
+
+      - name: Publicar a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ github.run_number }}"
+          gh release create "$TAG" overos-light.img.xz \
+            --repo "${{ github.repository }}" \
+            --title "OverOS Light $TAG" \
+            --notes "Imagem de disco (.img compactada em .xz). Descompacte (xz -d) e grave no pendrive com EtchDroid/Etcher no modo imagem de disco. Veja o README."

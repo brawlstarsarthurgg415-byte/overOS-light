@@ -1,0 +1,4 @@
+# OverOS Light - swap compactado na RAM (poupa o pendrive)
+ALGO=lz4
+PERCENT=50
+PRIORITY=100

@@ -1,0 +1,11 @@
+[Unit]
+Description=OverOS Light - ocupar todo o pendrive no primeiro boot
+ConditionPathExists=!/var/lib/overos/growfs.done
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/overos-growfs
+
+[Install]
+WantedBy=multi-user.target
