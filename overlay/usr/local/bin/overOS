@@ -1,0 +1,380 @@
+#!/usr/bin/env bash
+# overOS - configurações e mini apps do OverOS Light
+#
+# Uso:  overOS [menu|bluetooth|internet|telas|apps|cobrinha|musica|cursor|cor|hora|instalar|testes]
+# Sem argumento, abre o menu.
+
+TITULO="OverOS Light"
+APT_OPT=(-o Acquire::Check-Date=false -o Acquire::Check-Valid-Until=false)
+
+tem() { command -v "$1" >/dev/null 2>&1; }
+sem_x() { [ -z "${DISPLAY:-}" ]; }
+aviso() { whiptail --title "$TITULO" --msgbox "$1" 15 64; }
+sim_nao() { whiptail --title "$TITULO" --yesno "$1" 10 64; }
+perguntar() { whiptail --title "$TITULO" --inputbox "$1" 10 64 "${2:-}" 3>&1 1>&2 2>&3; }
+esperar() { read -rsp $'\nENTER para continuar...' _; echo; }
+
+tem whiptail || { echo "Falta o whiptail: sudo apt install whiptail"; exit 1; }
+
+# Se o programa for interrompido, devolve o terminal ao normal.
+trap 'stty sane 2>/dev/null; tput cnorm 2>/dev/null' EXIT
+
+# ------------------------------------------------------------ instalar
+f_instalar() {
+  local pacotes=("$@")
+  [ ${#pacotes[@]} -gt 0 ] || pacotes=(polkitd pkexec systemd-timesyncd bluez blueman pulseaudio-module-bluetooth)
+  clear
+  echo "Instalando: ${pacotes[*]}"
+  echo "(precisa de internet; se falhar, use: overOS internet)"
+  echo
+  sudo apt-get "${APT_OPT[@]}" update &&
+    sudo apt-get "${APT_OPT[@]}" install -y --no-install-recommends "${pacotes[@]}"
+  local r=$?
+  esperar
+  return $r
+}
+
+# ------------------------------------------------------------ bluetooth
+f_bluetooth() {
+  if ! tem bluetoothctl; then
+    sim_nao "O Bluetooth ainda não está instalado. Instalar agora? (precisa de internet)" || return
+    f_instalar bluez blueman pulseaudio-module-bluetooth || return
+  fi
+  if ! rfkill list bluetooth 2>/dev/null | grep -q .; then
+    aviso "Não encontrei adaptador Bluetooth neste notebook.\n\nSe ele não tem Bluetooth embutido, use um adaptador USB."
+    return
+  fi
+  sudo rfkill unblock bluetooth 2>/dev/null
+  sudo systemctl enable --now bluetooth 2>/dev/null
+  pulseaudio --start 2>/dev/null
+  if ! sem_x && tem blueman-manager; then
+    blueman-manager >/dev/null 2>&1 &
+  else
+    aviso "Dentro do bluetoothctl, digite um por vez:\n\npower on\nagent on\nscan on\npair XX:XX:XX:XX:XX:XX\nconnect XX:XX:XX:XX:XX:XX\n\nPara sair: quit\n\n(Na interface gráfica, 'overOS bluetooth' abre o Blueman.)"
+    bluetoothctl
+  fi
+}
+
+# ------------------------------------------------------------ internet
+f_internet() {
+  sudo nmtui
+}
+
+# ------------------------------------------------------------ telas
+f_telas() {
+  if sem_x || ! tem xrandr; then
+    aviso "Abra a interface gráfica antes (comando: startx)."
+    return
+  fi
+  local telas p s modo="${1:-}"
+  mapfile -t telas < <(xrandr | awk '/ connected/{print $1}')
+  if [ ${#telas[@]} -lt 2 ]; then
+    aviso "Só encontrei uma tela (${telas[0]:-nenhuma}).\n\nLigue o cabo (VGA/HDMI) na segunda tela e tente de novo."
+    return
+  fi
+  p=${telas[0]}
+  s=${telas[1]}
+  if [ -z "$modo" ]; then
+    modo=$(whiptail --title "$TITULO" --menu "Telas: $p (1ª) e $s (2ª)" 17 64 6 \
+      estendido "Estender a área de trabalho" \
+      espelhar "Mesma imagem nas duas" \
+      primeira "Somente a primeira tela" \
+      segunda "Somente a segunda tela" \
+      semfio "Tela sem fio" 3>&1 1>&2 2>&3) || return
+  fi
+  case "$modo" in
+    estendido) xrandr --output "$p" --auto --primary --output "$s" --auto --right-of "$p" ;;
+    espelhar) xrandr --output "$p" --auto --output "$s" --auto --same-as "$p" ;;
+    primeira) xrandr --output "$p" --auto --primary --output "$s" --off ;;
+    segunda) xrandr --output "$s" --auto --primary --output "$p" --off ;;
+    semfio)
+      aviso "Tela sem fio (Miracast) ainda não funciona no OverOS Light.\n\nEla precisa de Wi-Fi Direct, e o chip Wi-Fi Broadcom (b43) deste notebook provavelmente não tem isso. Fica para uma próxima versão."
+      ;;
+    *)
+      echo "Uso: overOS telas [estendido|espelhar|primeira|segunda]"
+      return 1
+      ;;
+  esac
+}
+
+# ------------------------------------------------------------ cursor do mouse
+f_cursor() {
+  if sem_x || ! tem xsetroot; then
+    aviso "Abra a interface gráfica antes (comando: startx)."
+    return
+  fi
+  xsetroot -cursor_name left_ptr
+  mkdir -p ~/.config/openbox
+  local a=~/.config/openbox/autostart
+  grep -qs 'xsetroot -cursor_name' "$a" || echo 'xsetroot -cursor_name left_ptr &' >>"$a"
+  aviso "Cursor do mouse ativado.\n\nEle vai aparecer sempre que a interface abrir."
+}
+
+# ------------------------------------------------------------ cor do terminal
+f_cor() {
+  local esc fg bg sf sb c
+  esc=$(whiptail --title "$TITULO" --menu "Cor do terminal" 16 60 5 \
+    verde "Verde no preto" \
+    ambar "Âmbar no preto" \
+    branco "Branco no preto" \
+    azul "Branco no azul" \
+    ciano "Ciano no preto" 3>&1 1>&2 2>&3) || return
+  case "$esc" in
+    verde) fg='rgb(0,255,0)'; bg='rgb(0,0,0)'; sf=green; sb=black ;;
+    ambar) fg='rgb(255,176,0)'; bg='rgb(0,0,0)'; sf=yellow; sb=black ;;
+    branco) fg='rgb(211,215,207)'; bg='rgb(0,0,0)'; sf=white; sb=black ;;
+    azul) fg='rgb(255,255,255)'; bg='rgb(0,0,128)'; sf=white; sb=blue ;;
+    ciano) fg='rgb(0,255,255)'; bg='rgb(0,0,0)'; sf=cyan; sb=black ;;
+  esac
+
+  # terminal da interface gráfica (lxterminal)
+  c=~/.config/lxterminal/lxterminal.conf
+  mkdir -p "$(dirname "$c")"
+  [ -f "$c" ] || printf '[general]\n' >"$c"
+  grep -q '^\[general\]' "$c" || sed -i '1i [general]' "$c"
+  sed -i '/^fgcolor=/d;/^bgcolor=/d' "$c"
+  sed -i "/^\[general\]/a fgcolor=$fg\nbgcolor=$bg" "$c"
+
+  # terminal puro (tty): vale a partir do próximo login também
+  mkdir -p ~/.config/overos
+  cat >~/.config/overos/cor-tty <<EOF
+case "\$(tty)" in /dev/tty[0-9]*) setterm --foreground $sf --background $sb --store 2>/dev/null; clear ;; esac
+EOF
+  grep -qs 'overos/cor-tty' ~/.bash_aliases ||
+    echo '[ -f ~/.config/overos/cor-tty ] && . ~/.config/overos/cor-tty' >>~/.bash_aliases
+  if sem_x; then . ~/.config/overos/cor-tty; fi
+
+  aviso "Cor aplicada.\n\nNo terminal da interface, vale para as próximas janelas que você abrir."
+}
+
+# ------------------------------------------------------------ data e hora
+f_hora() {
+  local op h
+  op=$(whiptail --title "$TITULO" --menu "Agora: $(date '+%d/%m/%Y %H:%M')" 14 64 3 \
+    internet "Sincronizar pela internet" \
+    manual "Digitar a hora na mão" \
+    voltar "Voltar" 3>&1 1>&2 2>&3) || return
+  case "$op" in
+    internet)
+      if [ ! -x /usr/lib/systemd/systemd-timesyncd ] && [ ! -x /lib/systemd/systemd-timesyncd ]; then
+        f_instalar systemd-timesyncd || return
+      fi
+      sudo timedatectl set-timezone America/Sao_Paulo
+      sudo timedatectl set-ntp true
+      sleep 5
+      aviso "Hora agora: $(date '+%d/%m/%Y %H:%M')\n\nSe ainda estiver errada, espere um minuto ou use a opção manual."
+      ;;
+    manual)
+      h=$(perguntar "Data e hora atuais (AAAA-MM-DD HH:MM):" "$(date '+%Y-%m-%d %H:%M')") || return
+      sudo timedatectl set-ntp false 2>/dev/null
+      if sudo date -s "$h" >/dev/null; then
+        sudo hwclock --systohc 2>/dev/null
+        aviso "Hora agora: $(date '+%d/%m/%Y %H:%M')"
+      else
+        aviso "Não entendi essa data. Use o formato 2026-10-19 20:30"
+      fi
+      ;;
+  esac
+}
+
+# ------------------------------------------------------------ jogo da cobrinha
+f_cobrinha() {
+  local W=36 H=18 dx=1 dy=0 pontos=0 fx fy nx ny i k r ok last stty_ant
+  local -a sx=(10 9 8) sy=(9 9 9)
+  # at COLUNA LINHA TEXTO: escreve dentro do tabuleiro
+  at() { printf '\033[%d;%dH%s' $(($2 + 2)) $(($1 + 2)) "$3"; }
+  novo_fruto() {
+    while :; do
+      fx=$((RANDOM % W))
+      fy=$((RANDOM % H))
+      ok=1
+      for i in "${!sx[@]}"; do
+        if ((sx[i] == fx && sy[i] == fy)); then
+          ok=0
+          break
+        fi
+      done
+      ((ok)) && break
+    done
+    at "$fx" "$fy" '*'
+  }
+
+  stty_ant=$(stty -g)
+  stty -echo -icanon
+  tput civis
+  clear
+  # tabuleiro
+  local linha
+  linha=$(printf '%*s' "$W" '' | tr ' ' '-')
+  printf '\033[1;1H+%s+' "$linha"
+  for ((i = 0; i < H; i++)); do
+    printf '\033[%d;1H|\033[%d;%dH|' $((i + 2)) $((i + 2)) $((W + 2))
+  done
+  printf '\033[%d;1H+%s+' $((H + 2)) "$linha"
+  printf '\033[%d;1HPontos: %-4d  setas = mover   q = sair' $((H + 3)) "$pontos"
+  for i in "${!sx[@]}"; do at "${sx[i]}" "${sy[i]}" 'o'; done
+  at "${sx[0]}" "${sy[0]}" 'O'
+  novo_fruto
+
+  while :; do
+    k=''
+    IFS= read -rsn1 -t 0.12 k
+    if [[ $k == $'\033' ]]; then
+      IFS= read -rsn2 -t 0.01 r
+      case "$r" in
+        '[A') ((dy == 0)) && { dx=0; dy=-1; } ;;
+        '[B') ((dy == 0)) && { dx=0; dy=1; } ;;
+        '[C') ((dx == 0)) && { dx=1; dy=0; } ;;
+        '[D') ((dx == 0)) && { dx=-1; dy=0; } ;;
+      esac
+    elif [[ $k == q || $k == Q ]]; then
+      break
+    fi
+
+    nx=$((sx[0] + dx))
+    ny=$((sy[0] + dy))
+    if ((nx < 0 || nx >= W || ny < 0 || ny >= H)); then break; fi
+    ok=1
+    for i in "${!sx[@]}"; do
+      if ((sx[i] == nx && sy[i] == ny)); then
+        ok=0
+        break
+      fi
+    done
+    ((ok)) || break
+
+    at "${sx[0]}" "${sy[0]}" 'o'
+    sx=("$nx" "${sx[@]}")
+    sy=("$ny" "${sy[@]}")
+    at "$nx" "$ny" 'O'
+    if ((nx == fx && ny == fy)); then
+      ((pontos++))
+      printf '\033[%d;1HPontos: %-4d' $((H + 3)) "$pontos"
+      novo_fruto
+    else
+      last=$((${#sx[@]} - 1))
+      at "${sx[last]}" "${sy[last]}" ' '
+      unset "sx[$last]" "sy[$last]"
+    fi
+  done
+
+  stty "$stty_ant"
+  tput cnorm
+  printf '\033[%d;1H\nFim de jogo! Pontos: %d\n' $((H + 4)) "$pontos"
+  esperar
+  clear
+}
+
+# ------------------------------------------------------------ música
+f_musica() {
+  if ! tem mpv || ! tem yt-dlp; then
+    aviso "Faltam o mpv e o yt-dlp. Eles vêm na imagem; se sumiram: overOS instalar mpv yt-dlp"
+    return
+  fi
+  local q
+  q=$(perguntar "Nome da música ou artista:") || return
+  [ -n "$q" ] || return
+  clear
+  echo "Procurando: $q"
+  echo "(espaço = pausa, > = próxima, q = sair)"
+  mpv --no-video --ytdl-format=bestaudio "ytdl://ytsearch10:$q"
+}
+
+# ------------------------------------------------------------ mini apps
+f_apps() {
+  local op
+  while :; do
+    op=$(whiptail --title "$TITULO" --menu "Mini apps" 16 60 5 \
+      cobrinha "Jogo da cobrinha" \
+      musica "Ouvir música (YouTube, só áudio)" \
+      matrix "Matrix na tela" \
+      monitor "Monitor do sistema" \
+      voltar "Voltar" 3>&1 1>&2 2>&3) || return
+    case "$op" in
+      cobrinha) f_cobrinha ;;
+      musica) f_musica ;;
+      matrix) if tem cmatrix; then cmatrix; else aviso "O cmatrix não está instalado."; fi ;;
+      monitor) if tem btop; then btop; else htop; fi ;;
+      voltar) return ;;
+    esac
+  done
+}
+
+# ------------------------------------------------------------ testes de hardware
+f_testes() {
+  if tem overos-testes; then
+    overos-testes
+  else
+    aviso "Não achei o menu de testes (overos-testes)."
+  fi
+}
+
+# ------------------------------------------------------------ menu principal
+f_menu() {
+  local op
+  while :; do
+    op=$(whiptail --title "$TITULO" --menu "O que você quer fazer?" 21 66 10 \
+      bluetooth "Bluetooth" \
+      internet "Internet / Wi-Fi" \
+      telas "Telas (estender, só uma, sem fio)" \
+      cursor "Mostrar o cursor do mouse" \
+      cor "Cor do terminal" \
+      hora "Acertar data e hora" \
+      apps "Mini apps (cobrinha, música)" \
+      testes "Testes do notebook" \
+      instalar "Instalar o que falta (Bluetooth etc.)" \
+      sair "Sair" 3>&1 1>&2 2>&3) || break
+    case "$op" in
+      bluetooth) f_bluetooth ;;
+      internet) f_internet ;;
+      telas) f_telas ;;
+      cursor) f_cursor ;;
+      cor) f_cor ;;
+      hora) f_hora ;;
+      apps) f_apps ;;
+      testes) f_testes ;;
+      instalar) f_instalar ;;
+      sair) break ;;
+    esac
+  done
+  clear
+}
+
+f_ajuda() {
+  cat <<'EOF'
+overOS             abre o menu
+overOS bluetooth   utilitário de Bluetooth
+overOS internet    conectar no Wi-Fi ou cabo
+overOS telas       estender, espelhar, só a 1ª ou só a 2ª tela
+overOS cursor      mostrar o cursor do mouse
+overOS cor         trocar a cor do terminal
+overOS hora        acertar data e hora
+overOS apps        mini apps (cobrinha, música...)
+overOS cobrinha    jogo da cobrinha direto
+overOS musica      ouvir música
+overOS testes      testes do notebook
+overOS instalar    instalar o que falta (precisa de internet)
+EOF
+}
+
+case "${1:-menu}" in
+  menu) f_menu ;;
+  bluetooth | bt) f_bluetooth ;;
+  internet | wifi) f_internet ;;
+  telas | screens) shift; f_telas "$@" ;;
+  cursor) f_cursor ;;
+  cor) f_cor ;;
+  hora) f_hora ;;
+  apps) f_apps ;;
+  cobrinha | snake) f_cobrinha ;;
+  musica | música) f_musica ;;
+  testes) f_testes ;;
+  instalar) shift; f_instalar "$@" ;;
+  ajuda | -h | --help) f_ajuda ;;
+  *)
+    echo "Comando desconhecido: $1"
+    echo
+    f_ajuda
+    exit 1
+    ;;
+esac

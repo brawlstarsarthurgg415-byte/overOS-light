@@ -159,17 +159,18 @@ NUCLEO=(
   e2fsprogs cloud-guest-utils util-linux less nano procps
   network-manager wpasupplicant iw rfkill iputils-ping
   xserver-xorg-core xserver-xorg-input-libinput xserver-xorg-video-all
-  xinit x11-xserver-utils openbox tint2 lxterminal fonts-dejavu-core
+  xinit x11-xserver-utils x11-xkb-utils xdotool openbox tint2 lxterminal fonts-dejavu-core
   netsurf-gtk mpv alsa-utils
   usbutils pciutils v4l-utils acpi upower lm-sensors memtester hdparm whiptail
-  zram-tools htop
+  zram-tools htop polkitd pkexec systemd-timesyncd bluez
 )
 no_chroot apt-get install -y --no-install-recommends "${NUCLEO[@]}"
 
 OPCIONAIS=(
   fastfetch btop cmatrix yt-dlp pulseaudio pcmanfm libgl1-mesa-dri
   b43-fwcutter firmware-b43-installer firmware-brcm80211 firmware-misc-nonfree
-  firmware-linux-free memtest86+ xterm
+  firmware-linux-free memtest86+ xterm blueman pulseaudio-module-bluetooth
+  bluez pulseaudio-module-bluetooth
 )
 instalar_opcional "${OPCIONAIS[@]}"
 if [ "$INCLUIR_FIREFOX" = "sim" ]; then
@@ -179,8 +180,24 @@ fi
 # ------------------------------------------------------- 4. arquivos do OverOS
 msg "6/9 Copiando os arquivos do OverOS (menu de testes, interface, ajustes)"
 rsync -a --chown=root:root "$AQUI/overlay/" "$MNT/"
-chmod 0755 "$MNT/usr/local/bin/overos-testes" "$MNT/usr/local/sbin/overos-growfs"
+chmod 0755 "$MNT/usr/local/bin/overos-testes" "$MNT/usr/local/sbin/overos-growfs" \
+  "$MNT/usr/local/bin/overos" "$MNT/usr/local/bin/overos-telas" "$MNT/usr/local/bin/overos-cobrinha"
 chmod 0440 "$MNT"/etc/sudoers.d/overos
+ln -sf overos "$MNT/usr/local/bin/overOS"     # o comando também vale escrito "overOS"
+
+# Openbox: Ctrl+T troca de tela (overos screens next) e as janelas novas abrem na
+# tela onde está o mouse. Parte do rc.xml padrão do próprio Openbox da imagem.
+RC="$MNT/etc/skel/.config/openbox/rc.xml"
+if [ -f "$MNT/etc/xdg/openbox/rc.xml" ]; then
+  cp "$MNT/etc/xdg/openbox/rc.xml" "$RC"
+  sed -i 's#<monitor>Primary</monitor>#<monitor>Mouse</monitor>#' "$RC"
+  ATALHO='    <keybind key="C-t">\n      <action name="Execute">\n        <command>overos-telas next</command>\n      </action>\n    </keybind>'
+  sed -i "0,/<\/keyboard>/ s|</keyboard>|${ATALHO}\n  </keyboard>|" "$RC"
+fi
+grep -q 'overos-telas next' "$RC" 2>/dev/null \
+  || echo "AVISO: não consegui criar o atalho Ctrl+T no Openbox (rc.xml)" | tee -a "$AVISOS"
+grep -q '<monitor>Mouse</monitor>' "$RC" 2>/dev/null \
+  || echo "AVISO: janelas novas não vão abrir na tela do mouse (rc.xml)" | tee -a "$AVISOS"
 cat > "$MNT/etc/overos-release" <<EOF
 NAME="OverOS Light Version"
 BASE="Debian $SUITE (amd64)"
@@ -195,7 +212,7 @@ no_chroot update-locale LANG=pt_BR.UTF-8
 
 # usuário (depois do rsync, para receber os arquivos de /etc/skel)
 GRUPOS=""
-for g in sudo audio video plugdev netdev cdrom dialout adm; do
+for g in sudo audio video plugdev netdev cdrom dialout adm bluetooth; do
   if grep -q "^$g:" "$MNT/etc/group"; then   # só grupos que existem DENTRO da imagem
     GRUPOS="${GRUPOS:+$GRUPOS,}$g"
   fi
@@ -207,6 +224,7 @@ no_chroot passwd -l root >/dev/null
 no_chroot systemctl enable overos-growfs.service
 no_chroot systemctl enable NetworkManager.service
 no_chroot systemctl enable zramswap.service || echo "AVISO: zramswap não habilitou" | tee -a "$AVISOS"
+no_chroot systemctl enable bluetooth.service || echo "AVISO: bluetooth não habilitou (pacote bluez não foi instalado?)" | tee -a "$AVISOS"
 
 # ------------------------------------------------------- 5. inicialização
 msg "7/9 Instalando o GRUB (boot BIOS antigo) no pendrive"
