@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# =============================================================================
+# OverOS-light - coloca o Fastfetch dentro do REPOSITÓRIO (overOS-light), para
+# a próxima imagem já sair com ele.
+#
+# Rode de dentro da pasta do repositório (onde está o build-overos-light.sh):
+#     bash /caminho/para/overOS-fastfetch/aplicar-no-repo.sh
+# =============================================================================
+set -eu
+AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[ -f build-overos-light.sh ] && [ -d overlay ] || { echo "Rode isto dentro da pasta do repositório overOS-light (onde está o build-overos-light.sh)."; exit 1; }
+
+for rel in etc/skel/.config/fastfetch/config.jsonc etc/xdg/fastfetch/config.jsonc etc/profile.d/overos-fastfetch.sh; do
+  install -D -m 0644 "$AQUI/overlay/$rel" "overlay/$rel"
+  echo "copiado: overlay/$rel"
+done
+
+cat <<'FIM'
+
+Pronto, os 3 arquivos estão em overlay/. O build já copia a pasta overlay inteira
+para a imagem (e o fastfetch já faz parte dos pacotes), então não precisa mexer
+no build-overos-light.sh.
+
+Agora envie para o GitHub e gere a imagem de novo:
+    git add -A
+    git commit -m "Fastfetch do OverOS-light (terminal puro)"
+    git push
+    gh workflow run build.yml
+FIM
