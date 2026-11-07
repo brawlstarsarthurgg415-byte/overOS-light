@@ -94,8 +94,10 @@ def list_project_files(root: Path, max_items: int=500) -> list[dict]:
 
 def get_project_file(root: Path, relative: str):
     base=root.resolve()
-    candidate=(base/str(relative)).resolve()
-    if candidate==base or base not in candidate.parents or not candidate.is_file() or candidate.is_symlink():
+    source=base/str(relative)
+    if source.is_symlink(): return None
+    candidate=source.resolve()
+    if candidate==base or base not in candidate.parents or not candidate.is_file():
         return None
     try:
         if candidate.stat().st_size>20*1024*1024: return None
