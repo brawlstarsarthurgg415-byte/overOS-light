@@ -1268,11 +1268,11 @@ def achar_atualizacao():
         req = urllib.request.Request(url, headers={"User-Agent": "OverCode-Updater/1.7"})
         with urllib.request.urlopen(req, timeout=8) as response:
             pacote = response.read(12 * 1024 * 1024).decode("utf-8")
-        marca = "#__OVERIA_PY" + "_INICIO__\\n"
+        marca = "#__OVERIA_PY" + "_INICIO__\n"
         pos = pacote.find(marca)
         if pos >= 0:
             remoto = pacote[pos + len(marca):]
-            versao = re.search(r'^VERSAO = "([\\d.]+)"', remoto, re.M)
+            versao = re.search(r'^VERSAO = "([\d.]+)"', remoto, re.M)
             if versao:
                 vtxt = versao.group(1)
                 vnum = vtuple(vtxt)
