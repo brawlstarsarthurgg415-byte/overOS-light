@@ -21,7 +21,7 @@
 
 static int fb=-1, tty=-1, W=0,H=0,bpp=0;
 static long mapsz=0;
-static uint8_t *mem;
+static uint8_t *mem, *backbuf;
 static struct fb_var_screeninfo vi;
 static struct fb_fix_screeninfo fi;
 static struct termios oldt;
@@ -38,10 +38,10 @@ static uint32_t rgb(uint8_t r,uint8_t g,uint8_t b) {
 static void pixel(int x,int y,uint32_t c) {
   if(x<0||y<0||x>=W||y>=H) return;
   long o=(long)y*fi.line_length+(long)x*(bpp/8);
-  if(o<0||o+(bpp/8)>mapsz) return;
-  if(bpp==32) *(uint32_t*)(mem+o)=c;
-  else if(bpp==24) { mem[o]=c&255; mem[o+1]=(c>>8)&255; mem[o+2]=(c>>16)&255; }
-  else if(bpp==16) *(uint16_t*)(mem+o)=(uint16_t)c;
+  if(o<0||o+(bpp/8)>mapsz||!backbuf) return;
+  if(bpp==32) *(uint32_t*)(backbuf+o)=c;
+  else if(bpp==24) { backbuf[o]=c&255; backbuf[o+1]=(c>>8)&255; backbuf[o+2]=(c>>16)&255; }
+  else if(bpp==16) *(uint16_t*)(backbuf+o)=(uint16_t)c;
 }
 static void rect(int x,int y,int w,int h,uint32_t c) {
   if(w<1||h<1)return;
@@ -84,8 +84,10 @@ static void text(int x,int y,const char *s,int scale,uint32_t color) {
       if(g[yy]&(1<<(4-xx))) rect(x+xx*scale,y+yy*scale,scale,scale,color);
   }
 }
+static void present(void) { if(mem&&backbuf&&mapsz>0) memcpy(mem,backbuf,(size_t)mapsz); }
 static void cleanup(void) {
   if(tty>=0) { tcsetattr(tty,TCSAFLUSH,&oldt); if(old_graphics) ioctl(tty,KDSETMODE,KD_TEXT); }
+  free(backbuf); backbuf=NULL;
   if(mem&&mem!=MAP_FAILED) munmap(mem,mapsz);
   if(fb>=0)close(fb); if(tty>=0)close(tty);
 }
@@ -127,6 +129,7 @@ static void draw(void) {
   roundrect((W-dockw)/2,H-58,dockw,42,14,panel);
   text((W-dockw)/2+18,H-43,"1 HOME   2 APPS   3 FILES   4 SETTINGS",1,white);
   text(22,H-20,"ARROWS: MOVE    ENTER: OPEN    Q: EXIT",1,muted);
+  present();
 }
 static void draw_setup(int stage,const char *username,int mode,int pair) {
   uint32_t bg=rgb(7,12,25), panel=rgb(17,27,47), card=rgb(25,39,64);
@@ -163,6 +166,7 @@ static void draw_setup(int stage,const char *username,int mode,int pair) {
     text(x+26,y+280,"QR E CODIGO APARECEM SOMENTE SE ESCOLHER SIM",1,muted);
   }
   text(x+26,y+310,"OVEROS LITE  |  SETAS / TECLAS / ENTER",1,muted);
+  present();
 }
 
 static int save_setup(const char *username,int mode,int pair) {
@@ -186,6 +190,12 @@ static int run_setup(void) {
     if(poll(&p,1,-1)<=0)continue;
     unsigned char c=0;
     if(read(STDIN_FILENO,&c,1)!=1)continue;
+    if(c==27) {
+      unsigned char a=0,b=0; struct pollfd k={STDIN_FILENO,POLLIN,0};
+      if(poll(&k,1,60)>0 && read(STDIN_FILENO,&a,1)==1 && a=='[' && poll(&k,1,60)>0 && read(STDIN_FILENO,&b,1)==1) {
+        if(b=='A')c='w'; else if(b=='B')c='s';
+      }
+    }
     if(stage==0) {
       if(c=='\r'||c=='\n') { stage=1; continue; }
       if(c==127||c==8) { size_t n=strlen(username); if(n>0)username[n-1]=0; continue; }
@@ -193,9 +203,12 @@ static int run_setup(void) {
         size_t n=strlen(username); username[n]=(char)((c>='A'&&c<='Z')?c+32:c); username[n+1]=0;
       }
     } else if(stage==1) {
-      if(c=='1'){mode=0;stage=2;}
+      if(c=='w'||c=='W'||c=='k'||c=='K') mode=(mode+2)%3;
+      else if(c=='s'||c=='S'||c=='j'||c=='J') mode=(mode+1)%3;
+      else if(c=='1'){mode=0;stage=2;}
       else if(c=='2'){mode=1;stage=2;}
       else if(c=='3'){mode=2;stage=2;}
+      else if(c=='\r'||c=='\n'||c==' ') stage=2;
     } else {
       if(c=='y'||c=='Y'){pair=1;if(save_setup(username,mode,pair)<0)return 1;break;}
       if(c=='n'||c=='N'){pair=0;if(save_setup(username,mode,pair)<0)return 1;break;}
@@ -215,6 +228,8 @@ int main(int argc,char **argv) {
   if(W<320||H<200||(bpp!=16&&bpp!=24&&bpp!=32)){dprintf(2,"OverOS Shell: modo grafico nao suportado (%dx%d %dbpp)\n",W,H,bpp);return 2;}
   mem=mmap(NULL,mapsz,PROT_READ|PROT_WRITE,MAP_SHARED,fb,0);
   if(mem==MAP_FAILED){dprintf(2,"OverOS Shell: mmap falhou\n");return 2;}
+  backbuf=calloc(1,(size_t)mapsz);
+  if(!backbuf){dprintf(2,"OverOS Shell: memoria de desenho insuficiente\\n");cleanup();return 2;}
   tty=open("/dev/tty0",O_RDWR|O_NOCTTY);
   if(tty>=0){ioctl(tty,KDGETMODE,&old_graphics);ioctl(tty,KDSETMODE,KD_GRAPHICS);}
   if(tcgetattr(STDIN_FILENO,&oldt)==0){struct termios raw=oldt;raw.c_lflag&=~(ICANON|ECHO);raw.c_cc[VMIN]=0;raw.c_cc[VTIME]=1;tcsetattr(STDIN_FILENO,TCSAFLUSH,&raw);}
