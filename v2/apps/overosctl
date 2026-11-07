@@ -53,6 +53,19 @@ open_files() {
   echo "=== Arquivos: $target ==="; ls -lah "$target"
   echo "Navegar: cd \"$target\" | Copiar: cp ORIGEM DESTINO | Mover: mv ORIGEM DESTINO"
 }
+start_pairing() {
+  mkdir -p /run/overos-pair
+  state_dir=/mnt/overos-data/pair
+  mkdir -p "$state_dir"
+  if [ -f /run/over-pair.pid ] && kill -0 "$(cat /run/over-pair.pid)" 2>/dev/null; then
+    echo "Servico Meu OverOS ja esta ativo."
+  else
+    /usr/bin/over-pair serve --state-dir "$state_dir" >/run/over-pair.log 2>&1 &
+    echo $! >/run/over-pair.pid
+    sleep 1
+  fi
+  /usr/bin/over-pair screen
+}
 show_help() {
   echo "OverOS Apps — uso:"
   echo "  overosctl                 Menu"
@@ -60,12 +73,14 @@ show_help() {
   echo "  overosctl files [PASTA]   Arquivos"
   echo "  overosctl settings        Configurações"
   echo "  overosctl settings set CHAVE VALOR"
+  echo "  overosctl pair            Conectar o app Meu OverOS"
   echo "  overosctl help            Ajuda"
 }
 case "${1:-menu}" in
   status|monitor) show_status ;;
   files|arquivos) shift; open_files "${1:-/root}" ;;
   settings|config) shift; if [ "${1:-}" = set ]; then shift; set_setting "${1:-}" "${2:-}"; else show_settings; fi ;;
+  pair|meu-overos) start_pairing ;;
   help|-h|--help) show_help ;;
   menu)
     echo "╭──────────────────────────────╮"
