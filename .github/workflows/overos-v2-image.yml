@@ -56,8 +56,14 @@ jobs:
           scripts/config --enable VT_CONSOLE
           scripts/config --enable FB
           scripts/config --enable FB_VESA
+          scripts/config --enable FB_EFI
+          scripts/config --enable FRAMEBUFFER_CONSOLE
+          scripts/config --enable VGA_CONSOLE
+          scripts/config --enable FONT_8x16
           scripts/config --enable DRM
           scripts/config --enable DRM_SIMPLEDRM
+          scripts/config --enable DRM_FBDEV_EMULATION
+          scripts/config --enable DRM_I915
           scripts/config --enable INPUT_EVDEV
           make olddefconfig
           make -j2 bzImage
@@ -145,6 +151,8 @@ jobs:
           sudo tee "$RUNNER_TEMP/overos-mnt/boot/grub/grub.cfg" > /dev/null <<'GRUB'
           set timeout=5
           set default=0
+          # Preserve o modo de vídeo VBE escolhido pelo GRUB para o kernel.
+          set gfxpayload=keep
           if loadfont /boot/grub/fonts/unicode.pf2; then
             insmod gfxterm
             insmod all_video
@@ -153,7 +161,7 @@ jobs:
             set theme=/boot/grub/themes/overos/theme.txt
           fi
           menuentry "OverOS Lite V2 (experimental)" {
-            linux /boot/vmlinuz console=tty0 loglevel=4
+            linux /boot/vmlinuz console=tty0 video=vesafb loglevel=4
             initrd /boot/initramfs.cpio.gz
           }
           GRUB
