@@ -8,6 +8,7 @@
   let pendingAttachments = [];
   let liveMode = false;
   let recognition = null;
+  let awaitingReply = false;
   let chatHistory = [];
   let chatSessionId = sessionStorage.getItem("overcode-session-id") || "";
   let toastTimer;
@@ -70,8 +71,8 @@
     const chosen=$("voiceSelect").value;
     const voices=window.speechSynthesis.getVoices();
     utterance.voice=voices.find(v=>v.name===chosen)||voices.find(v=>v.lang.toLowerCase().startsWith("pt"))||null;
-    utterance.onend=()=>{if(liveMode) startRecognition()};
-    utterance.onerror=()=>{if(liveMode) startRecognition()};
+    utterance.onend=()=>{awaitingReply=false;if(liveMode) startRecognition()};
+    utterance.onerror=()=>{awaitingReply=false;if(liveMode) startRecognition()};
     window.speechSynthesis.speak(utterance);
   }
   async function chatWithKelly(message, attachmentIds=[], fromVoice=false){
@@ -135,6 +136,7 @@
   }
   function stopLive(){
     liveMode=false;
+    awaitingReply=false;
     if(recognition){try{recognition.onend=null;recognition.stop()}catch(_){}recognition=null}
     if("speechSynthesis" in window)window.speechSynthesis.cancel();
     $("voiceButton").classList.remove("active");
@@ -153,6 +155,7 @@
       const result=event.results[event.results.length-1];
       const transcript=result&&result[0]?result[0].transcript.trim():"";
       if(!transcript)return;
+      awaitingReply=true;
       try{recognition.stop()}catch(_){}
       addMessage("user",transcript);
       await chatWithKelly(transcript,[],true);
@@ -161,7 +164,7 @@
       if(event.error==="not-allowed"||event.error==="service-not-allowed"){notify("Permita o acesso ao microfone nas configurações do navegador.");stopLive()}
       else $("voiceStatus").textContent="Voz: "+event.error;
     };
-    recognition.onend=()=>{if(liveMode && !window.speechSynthesis.speaking)setTimeout(startRecognition,350)};
+    recognition.onend=()=>{if(liveMode && !awaitingReply && !window.speechSynthesis.speaking)setTimeout(startRecognition,350)};
     liveMode=true;
     $("voiceButton").classList.add("active");
     $("voiceButton").textContent="■ Parar Live";
