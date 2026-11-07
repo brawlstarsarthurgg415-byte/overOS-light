@@ -12,6 +12,7 @@ on:
       - overos-lite-v2
     paths:
       - "v2/**"
+      - "android/**"
       - ".github/workflows/overos-v2-image.yml"
 
 permissions:
@@ -37,7 +38,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential bc bison flex libssl-dev libelf-dev \
             cpio xz-utils wget curl git grub-pc-bin parted e2fsprogs \
-            qemu-system-x86 busybox-static fonts-dejavu-core
+            qemu-system-x86 busybox-static fonts-dejavu-core golang-go
 
       - name: Compilar kernel Linux x86_64
         env:
@@ -70,16 +71,25 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/out"
           cp arch/x86/boot/bzImage "$GITHUB_WORKSPACE/out/vmlinuz"
 
+      - name: Compilar serviço seguro OverOS Pair
+        run: |
+          set -eux
+          cd v2/pair
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$GITHUB_WORKSPACE/out/over-pair" .
+          file "$GITHUB_WORKSPACE/out/over-pair"
+
       - name: Montar initramfs mínimo OverOS com marca e Fastfetch
         run: |
           set -eux
           ROOT="$RUNNER_TEMP/overos-root"
-          mkdir -p "$ROOT"/{bin,sbin,etc,proc,sys,dev,run,tmp,root,usr/bin,usr/share/overos}
+          mkdir -p "$ROOT"/{bin,sbin,etc,proc,sys,dev,run,tmp,root,usr/bin,usr/share/overos,usr/share/udhcpc}
           chmod 1777 "$ROOT/tmp"
           cp /bin/busybox "$ROOT/bin/busybox"
           gcc -static -O2 -Wall -Wextra -o "$ROOT/usr/bin/over-shell" v2/desktop/over-shell.c
           chmod 0755 "$ROOT/usr/bin/over-shell"
-          for app in sh mount mkdir sleep uname free df cat clear reboot poweroff hostname tr \
+          cp out/over-pair "$ROOT/usr/bin/over-pair"
+          chmod 0755 "$ROOT/usr/bin/over-pair"
+          for app in sh mount umount mkdir sleep uname free df cat clear reboot poweroff hostname tr udhcpc ifconfig route \
             ln ls awk grep sed cp mv chmod; do
             ln -sf busybox "$ROOT/bin/$app"
           done
@@ -103,11 +113,52 @@ jobs:
           chmod 0755 "$ROOT/usr/share/overos/setup/firstboot.sh"
           cat > "$ROOT/init" <<'INIT'
           #!/bin/sh
+          export PATH=/sbin:/bin:/usr/sbin:/usr/bin
           mount -t proc proc /proc
           mount -t sysfs sysfs /sys
           mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
           mount -t tmpfs tmpfs /run
           hostname OverOS
+          mkdir -p /mnt/overos-data /run/overos-pair
+          PAIR_DIR=/run/overos-pair
+          # A partição que contém o GRUB também guarda os dados persistentes do Pair.
+          for attempt in 1 2 3 4 5; do
+            for dev in /dev/sd[a-z]1 /dev/vd[a-z]1 /dev/mmcblk*p1; do
+              [ -b "$dev" ] || continue
+              if mount -t ext2 -o rw "$dev" /mnt/overos-data 2>/dev/null; then
+                if [ -f /mnt/overos-data/boot/grub/grub.cfg ]; then
+                  PAIR_DIR=/mnt/overos-data/overos-data/pair
+                  mkdir -p "$PAIR_DIR"
+                  chmod 700 "$PAIR_DIR"
+                  echo "Armazenamento persistente do OverOS encontrado."
+                  break 2
+                fi
+                /bin/busybox umount /mnt/overos-data 2>/dev/null || true
+              fi
+            done
+            sleep 1
+          done
+          # DHCP Ethernet; suporte Wi-Fi e credenciais serão adicionados após validar o chipset.
+          mkdir -p /usr/share/udhcpc
+          cat > /usr/share/udhcpc/default.script <<'DHCP'
+          #!/bin/sh
+          case "$1" in
+            deconfig) ifconfig "$interface" 0.0.0.0 ;;
+            bound|renew)
+              ifconfig "$interface" "$ip" netmask "\${subnet:-255.255.255.0}" up
+              for r in $router; do route add default gw "$r" "$interface" 2>/dev/null || true; done
+              : > /etc/resolv.conf
+              for ns in $dns; do echo "nameserver $ns" >> /etc/resolv.conf; done
+              ;;
+          esac
+          exit 0
+          DHCP
+          chmod 755 /usr/share/udhcpc/default.script
+          for iface_path in /sys/class/net/eth* /sys/class/net/en*; do
+            [ -e "$iface_path" ] || continue
+            iface=\${iface_path##*/}
+            udhcpc -i "$iface" -q -n -t 5 -T 2 -s /usr/share/udhcpc/default.script >/run/udhcpc-"$iface".log 2>&1 &
+          done
           clear
           echo
           echo "Bem-vindo ao OverOS Lite V2"
@@ -116,7 +167,11 @@ jobs:
           fi
           session=auto
           if [ -f /etc/overos/setup.conf ]; then . /etc/overos/setup.conf; fi
-          echo "Usuario configurado: ${username:-over}"
+          echo "Usuario configurado: \${username:-over}"
+          echo "Iniciando serviço seguro de pareamento..."
+          /usr/bin/over-pair serve --state-dir "$PAIR_DIR" >/run/over-pair.log 2>&1 &
+          sleep 1
+          /usr/bin/over-pair screen
           echo "Utilitarios leves: overosctl"
           if [ "$session" != terminal ] && [ -x /usr/bin/over-shell ]; then
             echo "Iniciando a interface grafica OverOS..."
@@ -140,10 +195,11 @@ jobs:
           LOOP=$(sudo losetup --find --show --partscan "$IMG")
           cleanup() { sudo umount "$RUNNER_TEMP/overos-mnt" 2>/dev/null || true; sudo losetup -d "$LOOP" 2>/dev/null || true; }
           trap cleanup EXIT
-          sudo mkfs.ext2 -F "${LOOP}p1"
+          sudo mkfs.ext2 -F -L OVEROS "${LOOP}p1"
           sudo mkdir -p "$RUNNER_TEMP/overos-mnt"
           sudo mount "${LOOP}p1" "$RUNNER_TEMP/overos-mnt"
-          sudo mkdir -p "$RUNNER_TEMP/overos-mnt/boot/grub/themes/overos" "$RUNNER_TEMP/overos-mnt/boot/grub/fonts"
+          sudo mkdir -p "$RUNNER_TEMP/overos-mnt/boot/grub/themes/overos" "$RUNNER_TEMP/overos-mnt/boot/grub/fonts" "$RUNNER_TEMP/overos-mnt/overos-data/pair"
+          sudo chmod 700 "$RUNNER_TEMP/overos-mnt/overos-data/pair"
           sudo cp v2/boot/grub-theme/theme.txt "$RUNNER_TEMP/overos-mnt/boot/grub/themes/overos/theme.txt"
           sudo cp /usr/share/grub/unicode.pf2 "$RUNNER_TEMP/overos-mnt/boot/grub/fonts/unicode.pf2"
           sudo cp out/vmlinuz "$RUNNER_TEMP/overos-mnt/boot/vmlinuz"
@@ -192,5 +248,67 @@ jobs:
             out/SHA256SUMS.txt
             out/qemu-boot.log
           compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
+
+  build-apk:
+    name: Compilar APK OverOS Control 2.8
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+        with:
+          ref: overos-lite-v2
+      - name: Preparar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+      - name: Compilar APK instalável
+        working-directory: android
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OverOS-Control-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  package-downloads:
+    name: Reunir APK e sistema para download
+    needs: [build-image, build-apk]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Baixar imagem OverOS
+        uses: actions/download-artifact@v4
+        with:
+          name: OverOS-V2-IMG-experimental
+          path: package/system
+      - name: Baixar APK
+        uses: actions/download-artifact@v4
+        with:
+          name: OverOS-Control-APK
+          path: package/android
+      - name: Criar pacote único
+        run: |
+          set -eux
+          mkdir -p package/OverOS-Pair-V2
+          cp package/system/overos-lite-v2.img.xz package/OverOS-Pair-V2/
+          cp package/system/overos-lite-v2.img package/OverOS-Pair-V2/
+          cp package/android/app-debug.apk package/OverOS-Pair-V2/OverOS-Control-2.8-debug.apk
+          cp package/system/qemu-boot.log package/OverOS-Pair-V2/
+          (cd package/OverOS-Pair-V2 && sha256sum overos-lite-v2.img overos-lite-v2.img.xz OverOS-Control-2.8-debug.apk > SHA256SUMS.txt)
+          cd package
+          zip -r OverOS-Pair-V2.zip OverOS-Pair-V2
+      - name: Publicar pacote combinado
+        uses: actions/upload-artifact@v4
+        with:
+          name: OverOS-Pair-V2-completo
+          path: package/OverOS-Pair-V2.zip
           if-no-files-found: error
           retention-days: 14
