@@ -180,15 +180,19 @@ jobs:
           echo
           echo "Bem-vindo ao OverOS Lite V2"
           if [ ! -f /etc/overos/setup.conf ]; then
-            /usr/share/overos/setup/firstboot.sh
+            /usr/bin/over-shell --setup || /usr/share/overos/setup/firstboot.sh
           fi
           session=auto
+          pair=no
           if [ -f /etc/overos/setup.conf ]; then . /etc/overos/setup.conf; fi
           echo "Usuario configurado: ${username:-over}"
-          echo "Iniciando serviço seguro de pareamento..."
-          /usr/bin/over-pair serve --state-dir "$PAIR_DIR" >/run/over-pair.log 2>&1 &
-          sleep 1
-          /usr/bin/over-pair screen
+          if [ "${pair:-no}" = yes ]; then
+            echo "Iniciando pareamento solicitado pelo usuario..."
+            /usr/bin/over-pair serve --state-dir "$PAIR_DIR" >/run/over-pair.log 2>&1 &
+            echo $! >/run/over-pair.pid
+            sleep 1
+            /usr/bin/over-pair screen
+          fi
           echo "Utilitarios leves: overosctl"
           if [ "$session" != terminal ] && [ -x /usr/bin/over-shell ]; then
             echo "Iniciando a interface grafica OverOS..."
