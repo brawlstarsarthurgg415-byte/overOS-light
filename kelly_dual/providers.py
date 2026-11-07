@@ -43,7 +43,8 @@ def save_config(payload: dict) -> dict:
         if not base_url.startswith("https://"):
             raise ValueError("A URL do provedor precisa usar HTTPS.")
     old = _read()
-    key = str(payload.get("api_key", "")).strip() or old.get("api_key", "")
+    new_key = str(payload.get("api_key", "")).strip()
+    key = new_key or (old.get("api_key", "") if old.get("provider") == provider else "")
     if payload.get("clear_api_key"):
         key = ""
     if key and len(key) > 4096:
