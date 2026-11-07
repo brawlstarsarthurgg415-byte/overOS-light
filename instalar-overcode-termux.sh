@@ -137,9 +137,6 @@ def find_api_pids():
 
 def stop():
     pids=set(find_api_pids())
-    if PID.exists():
-        try: pids.add(int(PID.read_text().strip()))
-        except ValueError: pass
     if not pids:
         print("[OverCode] Nenhuma API ativa encontrada.")
         PID.unlink(missing_ok=True)
