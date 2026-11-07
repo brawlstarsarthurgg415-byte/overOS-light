@@ -256,7 +256,12 @@ def main():
         raise SystemExit("Defina KELLY_API_TOKEN com pelo menos 32 caracteres.")
     root = Path(os.environ.get("OVEROS_PROJECT_ROOT", str(Path.cwd()))).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
-    executor = load_executor()
+    try:
+        executor = load_executor()
+    except RuntimeError as exc:
+        print(f"[kelly-api] Aviso: {exc}")
+        def executor(task, emit, cancelled):
+            raise RuntimeError("Motor Kelly Code não conectado. Configure KELLY_EXECUTOR para habilitar tarefas de código.")
     coordinator = TaskCoordinator(executor)
     server = ThreadingHTTPServer((host, int(os.environ.get("KELLY_API_PORT", "8765"))),
                                  make_handler(coordinator, token, root))
