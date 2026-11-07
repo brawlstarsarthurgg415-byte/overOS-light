@@ -128,3 +128,6 @@ para conferir o que funcionou de verdade no i30.
 - Instalador do terminal atualizado: [`instalar-overia-code-v1_7.sh`](instalar-overia-code-v1_7.sh) (também disponível em [`instalar-overia-code.sh`](instalar-overia-code.sh)).
 - API e configuração dos provedores: [`docs/OVERCODE-CLOUD-API.md`](docs/OVERCODE-CLOUD-API.md).
 - A interface web inclui Configurações para Gemini e APIs compatíveis com OpenAI. As chaves ficam no servidor, nunca no código do app/site.
+
+- Instalador do serviço de API para Debian/OverOS: [`instalar-kelly-api.sh`](instalar-kelly-api.sh).
+- Exemplo de proxy HTTPS para publicar o site e a API: [`deploy/nginx-overcode.conf.example`](deploy/nginx-overcode.conf.example).
