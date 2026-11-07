@@ -18,7 +18,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from typing import Callable
 
-from .orchestrator import TaskCoordinator, Task, TaskEvent
+from .orchestrator import TaskCoordinator, Task, TaskEvent, should_delegate_to_code
 from . import providers
 from .sessions import SessionStore, run_slash_command
 
@@ -199,17 +199,38 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                         message, safe_history, root, session_id, sessions,
                         providers.complete, providers.public_config
                     )
-                    if command_answer is None:
+                    task_id = None
+                    if command_answer is None and should_delegate_to_code(message):
+                        context = safe_history[-12:]
+                        shared_context = "\\n".join(
+                            f"{item['role']}: {item['content']}" for item in context
+                        )
+                        delegated_prompt = (
+                            "CONTEXTO COMPARTILHADO DA CONVERSA:\\n"
+                            + shared_context + "\\n\\nTAREFA DO USUÁRIO:\\n" + message
+                        )
+                        task = coordinator.submit(delegated_prompt, str(root))
+                        task_id = task.id
+                        answer = (
+                            "Entendi. Já passei essa tarefa para a Kelly Code. "
+                            "Ela continuará trabalhando em segundo plano enquanto conversamos. "
+                            f"Identificador: {task_id[:8]}."
+                        )
+                    elif command_answer is None:
                         answer = providers.complete(
                             message,
-                            "Você é Kelly, assistente do OverCode. Responda em português brasileiro, seja clara e útil. Para alterações de código, oriente o usuário a delegar uma tarefa à Kelly Code.",
+                            "Você é Kelly, assistente leve de conversa do OverCode. Responda em português brasileiro. "
+                            "Kelly Code executa tarefas delegadas em segundo plano.",
                             safe_history
                         )
                     else:
                         answer = command_answer
                     sessions.append(session_id, "user", message)
                     sessions.append(session_id, "assistant", answer)
-                    self._json(200, {"answer": answer, "session_id": session_id})
+                    payload = {"answer": answer, "session_id": session_id}
+                    if task_id:
+                        payload.update({"task_id": task_id, "delegated": True})
+                    self._json(200, payload)
                     return
                 if path != "/api/tasks":
                     self._json(404, {"error": "Rota não encontrada."})
