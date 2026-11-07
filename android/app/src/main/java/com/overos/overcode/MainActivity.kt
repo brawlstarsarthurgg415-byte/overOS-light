@@ -182,6 +182,7 @@ class MainActivity : ComponentActivity() {
                                 } catch (e: Exception) { status = "Falha ao listar arquivos: ${e.message}" }
                             }
                         }) { Text("Arquivos") }
+                        TextButton(onClick = { startActivity(Intent(this@MainActivity, PairingActivity::class.java)) }) { Text("Parear") }
                         TextButton(onClick = { editing = !editing }) { Text("Conexão") }
                     }
 
