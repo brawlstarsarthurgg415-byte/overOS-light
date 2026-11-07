@@ -245,15 +245,18 @@ class MainActivity : ComponentActivity() {
                             maxLines = 4
                         )
                         Button(enabled = !busy && (input.isNotBlank() || pendingFiles.isNotEmpty()) && !editing, onClick = {
-                            val prompt = input.trim()
+                            val prompt = input.trim().ifBlank { "Analise os arquivos anexados." }
+                            val attachmentIds = pendingFiles.map { it.id }
+                            val attachmentNames = pendingFiles.map { it.name }
+                            pendingFiles.clear()
                             input = ""
-                            messages.add(ChatMessage(true, prompt))
+                            messages.add(ChatMessage(true, prompt + if (attachmentNames.isNotEmpty()) "\nAnexos: " + attachmentNames.joinToString() else ""))
                             busy = true
                             if (mode == AgentMode.KELLY) {
                                 status = "Kelly está respondendo…"
                                 scope.launch {
                                     try {
-                                        val reply = withContext(Dispatchers.IO) { postChat(base, token, prompt, sessionId) }
+                                        val reply = withContext(Dispatchers.IO) { postChat(base, token, prompt, sessionId, attachmentIds) }
                                         sessionId = reply.second
                                         prefs.edit().putString("session_id", sessionId).apply()
                                         messages.add(ChatMessage(false, reply.first))
@@ -292,7 +295,14 @@ class MainActivity : ComponentActivity() {
                                 executionLog.add("Enviando tarefa ao servidor…")
                                 scope.launch {
                                     try {
-                                        val taskId = withContext(Dispatchers.IO) { submitTask(base, token, prompt) }
+                                        val delegated = withContext(Dispatchers.IO) {
+                                            postChat(base, token, "@code " + prompt, sessionId, attachmentIds)
+                                        }
+                                        sessionId = delegated.second
+                                        prefs.edit().putString("session_id", sessionId).apply()
+                                        messages.add(ChatMessage(false, delegated.first))
+                                        val taskId = delegated.third
+                                        if (taskId.isBlank()) throw IllegalStateException("Kelly Code não criou uma tarefa.")
                                         activeTaskId = taskId
                                         executionLog.add("Tarefa criada: ${taskId.take(8)}")
                                         status = "Kelly Code está trabalhando…"
@@ -436,14 +446,14 @@ class MainActivity : ComponentActivity() {
         return conn
     }
 
-    private fun postChat(base: String, token: String, message: String, sessionId: String): Triple<String, String, String> {
+    private fun postChat(base: String, token: String, message: String, sessionId: String, attachments: List<String> = emptyList()): Triple<String, String, String> {
         val conn = authorizedConnection(base.trimEnd('/') + "/api/chat", token, "POST")
         try {
             conn.readTimeout = 60000
             conn.setRequestProperty("Content-Type", "application/json")
             conn.doOutput = true
             conn.outputStream.use {
-                val payload = JSONObject().put("message", message).put("history", org.json.JSONArray())
+                val payload = JSONObject().put("message", message).put("history", org.json.JSONArray()).put("attachments", org.json.JSONArray(attachments))
                 if (sessionId.isNotBlank()) payload.put("session_id", sessionId)
                 it.write(payload.toString().toByteArray())
             }
