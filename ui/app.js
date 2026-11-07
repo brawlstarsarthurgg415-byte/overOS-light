@@ -76,7 +76,7 @@
     window.speechSynthesis.speak(utterance);
   }
   async function chatWithKelly(message, attachmentIds=[], fromVoice=false){
-    const token=apiToken();if(!token){notify("Configure o token da Kelly API em Configurações.");return}
+    const token=apiToken();if(!token){notify("Configure o token da Kelly API em Configurações.");if(fromVoice){awaitingReply=false;if(liveMode)startRecognition()}return}
     try{
       const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({message,attachments:attachmentIds,history:chatHistory,session_id:chatSessionId})});
       const d=await r.json();if(!r.ok)throw new Error(d.error||("HTTP "+r.status));
@@ -93,7 +93,7 @@
         followTask(d.task_id,token).catch(e=>eventCard({title:"Falha ao acompanhar tarefa",detail:e.message}));
       }
       return answer;
-    }catch(e){addMessage("assistant","Falha na conversa: "+e.message+". Confira a API Key em Configurações.");return ""}
+    }catch(e){if(fromVoice){awaitingReply=false;if(liveMode)startRecognition()}addMessage("assistant","Falha na conversa: "+e.message+". Confira a API Key em Configurações.");return ""}
   }
   function renderAttachments(){
     const area=$("attachmentList");area.innerHTML="";
