@@ -142,7 +142,10 @@ func (s *PairServer) internalOnly(w http.ResponseWriter,r *http.Request) bool {
 func (s *PairServer) createSession(w http.ResponseWriter,r *http.Request) {
 	if !s.internalOnly(w,r){return}
 	if r.Method!=http.MethodPost{writeJSON(w,405,map[string]string{"error":"método não permitido"});return}
-	if s.hostIP==""{writeJSON(w,503,map[string]string{"error":"OverOS ainda não tem endereço IPv4 privado na rede local"});return}
+	s.mu.Lock()
+	hostIP:=s.hostIP
+	s.mu.Unlock()
+	if hostIP==""{writeJSON(w,503,map[string]string{"error":"OverOS ainda não tem endereço IPv4 privado na rede local"});return}
 	id,err:=randomID(16)
 	if err!=nil{writeJSON(w,500,map[string]string{"error":"não foi possível gerar sessão"});return}
 	nb,err:=randomBytes(32)
@@ -150,7 +153,7 @@ func (s *PairServer) createSession(w http.ResponseWriter,r *http.Request) {
 	nonce:=hex.EncodeToString(nb)
 	qr:=map[string]any{
 		"type":"overos-pair","version":1,
-		"url":"https://"+net.JoinHostPort(s.hostIP,"8766"),
+		"url":"https://"+net.JoinHostPort(hostIP,"8766"),
 		"session_id":id,"nonce":nonce,"tls_sha256":s.fingerprint,
 	}
 	s.mu.Lock()
@@ -217,6 +220,7 @@ func (s *PairServer) complete(w http.ResponseWriter,r *http.Request) {
 	if err:=readJSON(w,r,&req);err!=nil{writeJSON(w,400,map[string]string{"error":"requisição inválida"});return}
 	sessionID,code,deviceID:=req["session_id"],req["code"],req["device_id"]
 	if len(code)!=6||!validDeviceID(deviceID){writeJSON(w,400,map[string]string{"error":"código ou identificação do celular inválidos"});return}
+	for _,digit:=range code{if digit<'0'||digit>'9'{writeJSON(w,400,map[string]string{"error":"o código precisa ter seis dígitos"});return}}
 	name:=strings.TrimSpace(strings.Map(func(ch rune)rune{if ch<32||ch==127{return -1};return ch},req["device_name"]))
 	if len(name)>80{name=name[:80]}
 	if name==""{name="OverOS Control"}
@@ -234,11 +238,12 @@ func (s *PairServer) complete(w http.ResponseWriter,r *http.Request) {
 	}
 	token,err:=randomID(32)
 	if err!=nil{writeJSON(w,500,map[string]string{"error":"não foi possível criar credencial"});return}
+	oldDevices:=append([]Device(nil),s.devices...)
 	device:=Device{ID:deviceID,Name:name,TokenHash:tokenHash(token),CreatedAt:time.Now().UTC()}
 	for i:=range s.devices{if s.devices[i].ID==device.ID{s.devices=append(s.devices[:i],s.devices[i+1:]...);break}}
 	s.devices=append(s.devices,device)
 	if err:=s.saveDevicesLocked();err!=nil{
-		s.devices=s.devices[:len(s.devices)-1]
+		s.devices=oldDevices
 		writeJSON(w,500,map[string]string{"error":"não foi possível persistir o pareamento"});return
 	}
 	p.Completed=true
@@ -368,7 +373,9 @@ func serve(stateDir string)error {
 	for {
 		ips,ipErr:=lanIPv4s()
 		if ipErr!=nil{log.Printf("aguardando endereço IPv4 privado para pareamento");time.Sleep(3*time.Second);continue}
+		s.mu.Lock()
 		s.hostIP=ips[0].String()
+		s.mu.Unlock()
 		ln,err=net.Listen("tcp",net.JoinHostPort(s.hostIP,"8766"))
 		if err==nil{break}
 		log.Printf("não foi possível abrir listener LAN: %v",err)
