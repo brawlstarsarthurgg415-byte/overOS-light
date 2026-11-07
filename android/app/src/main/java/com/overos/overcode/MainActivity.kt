@@ -1,8 +1,23 @@
 package com.overos.overcode
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.util.Base64
+import java.util.Locale
+import java.util.UUID
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,11 +41,18 @@ private val panel = Color(0xFF1A1F29)
 private val cyan = Color(0xFF69D9DC)
 
 private data class ChatMessage(val fromUser: Boolean, val text: String)
+private data class UploadedFile(val id: String, val name: String)
 private enum class AgentMode { KELLY, CODE }
 
 class MainActivity : ComponentActivity() {
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var textToSpeech: TextToSpeech? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        textToSpeech = TextToSpeech(this) { result ->
+            if (result == TextToSpeech.SUCCESS) textToSpeech?.language = Locale("pt", "BR")
+        }
         val prefs = getSharedPreferences("overcode", MODE_PRIVATE)
         setContent {
             var base by remember { mutableStateOf(prefs.getString("base", "http://192.168.3.30:8765") ?: "") }
