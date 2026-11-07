@@ -58,6 +58,7 @@ type PairServer struct {
 	devices []Device
 	stateFile string
 	fingerprint string
+	hostIP string
 }
 
 func randomBytes(n int) ([]byte,error) {
@@ -141,8 +142,7 @@ func (s *PairServer) internalOnly(w http.ResponseWriter,r *http.Request) bool {
 func (s *PairServer) createSession(w http.ResponseWriter,r *http.Request) {
 	if !s.internalOnly(w,r){return}
 	if r.Method!=http.MethodPost{writeJSON(w,405,map[string]string{"error":"método não permitido"});return}
-	ips,err:=lanIPv4s()
-	if err!=nil{writeJSON(w,503,map[string]string{"error":"OverOS ainda não tem endereço IPv4 na rede local"});return}
+	if s.hostIP==""{writeJSON(w,503,map[string]string{"error":"OverOS ainda não tem endereço IPv4 privado na rede local"});return}
 	id,err:=randomID(16)
 	if err!=nil{writeJSON(w,500,map[string]string{"error":"não foi possível gerar sessão"});return}
 	nb,err:=randomBytes(32)
@@ -150,7 +150,7 @@ func (s *PairServer) createSession(w http.ResponseWriter,r *http.Request) {
 	nonce:=hex.EncodeToString(nb)
 	qr:=map[string]any{
 		"type":"overos-pair","version":1,
-		"url":"https://"+net.JoinHostPort(ips[0].String(),"8766"),
+		"url":"https://"+net.JoinHostPort(s.hostIP,"8766"),
 		"session_id":id,"nonce":nonce,"tls_sha256":s.fingerprint,
 	}
 	s.mu.Lock()
@@ -313,7 +313,7 @@ func lanIPv4s()([]net.IP,error) {
 			var ip net.IP
 			switch v:=addr.(type){case *net.IPNet:ip=v.IP;case *net.IPAddr:ip=v.IP}
 			ip=ip.To4()
-			if ip==nil||ip.IsLoopback()||ip.IsLinkLocalUnicast(){continue}
+			if ip==nil||ip.IsLoopback()||ip.IsLinkLocalUnicast()||!ip.IsPrivate(){continue}
 			found=append(found,ip)
 		}
 	}
@@ -361,17 +361,27 @@ func serve(stateDir string)error {
 	cert,fp,err:=makeTLSCertificate()
 	if err!=nil{return err}
 	s.fingerprint=fp
+	internal:=&http.Server{Addr:"127.0.0.1:8767",Handler:s.handler(),ReadHeaderTimeout:5*time.Second,ReadTimeout:10*time.Second,WriteTimeout:10*time.Second,IdleTimeout:30*time.Second}
+	go func(){if err:=internal.ListenAndServe();err!=nil&&err!=http.ErrServerClosed{log.Printf("listener interno: %v",err)}}()
 	server:=&http.Server{Addr:listenAddr,Handler:s.handler(),ReadHeaderTimeout:5*time.Second,ReadTimeout:10*time.Second,WriteTimeout:10*time.Second,IdleTimeout:30*time.Second,TLSConfig:&tls.Config{Certificates:[]tls.Certificate{cert},MinVersion:tls.VersionTLS12}}
-	log.Printf("OverOS Pair HTTPS ativo em %s; estado em %s",listenAddr,stateDir)
-	ln,err:=net.Listen("tcp",listenAddr)
-	if err!=nil{return err}
+	var ln net.Listener
+	for {
+		ips,ipErr:=lanIPv4s()
+		if ipErr!=nil{log.Printf("aguardando endereço IPv4 privado para pareamento");time.Sleep(3*time.Second);continue}
+		s.hostIP=ips[0].String()
+		ln,err=net.Listen("tcp",net.JoinHostPort(s.hostIP,"8766"))
+		if err==nil{break}
+		log.Printf("não foi possível abrir listener LAN: %v",err)
+		time.Sleep(3*time.Second)
+	}
+	log.Printf("OverOS Pair HTTPS ativo apenas em %s:8766; estado em %s",s.hostIP,stateDir)
 	return server.ServeTLS(ln,"","")
 }
 
 func localJSON(method,path string,body any)(map[string]any,error) {
 	var reader *strings.Reader
 	if body==nil{reader=strings.NewReader("")}else{b,err:=json.Marshal(body);if err!=nil{return nil,err};reader=strings.NewReader(string(b))}
-	req,err:=http.NewRequest(method,"http://127.0.0.1:8766"+path,reader)
+	req,err:=http.NewRequest(method,"http://127.0.0.1:8767"+path,reader)
 	if err!=nil{return nil,err}
 	req.Header.Set("Content-Type","application/json")
 	client:=&http.Client{Timeout:3*time.Second}
