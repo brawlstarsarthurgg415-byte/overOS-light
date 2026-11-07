@@ -194,7 +194,7 @@ class PairingActivity : ComponentActivity() {
                                                             .put("device_name", deviceName))
                                                 }
                                                 val accessToken = result.getString("access_token")
-                                                PairingTokenStore.save(this@PairingActivity, current.baseUrl, accessToken, deviceId)
+                                                PairingTokenStore.save(this@PairingActivity, current.baseUrl, accessToken, deviceId, current.fingerprint)
                                                 pairedName = result.optString("device_name", "Este celular")
                                                 stage = "done"
                                                 message = "Pareamento concluído. A credencial foi protegida pelo Android Keystore."
@@ -273,8 +273,10 @@ private fun pairPost(session: PairSession, path: String, payload: JSONObject): J
     }
 }
 
-private object PairingTokenStore {
-    fun save(activity: ComponentActivity, baseUrl: String, token: String, deviceId: String) {
+internal data class PairCredentials(val baseUrl: String, val token: String, val deviceId: String, val fingerprint: String)
+
+internal object PairingTokenStore {
+    fun save(activity: ComponentActivity, baseUrl: String, token: String, deviceId: String, fingerprint: String) {
         val alias = "overos_pair_access_token"
         val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         var key = keyStore.getKey(alias, null) as? javax.crypto.SecretKey
@@ -301,7 +303,26 @@ private object PairingTokenStore {
             .putString("access_token_ciphertext", Base64.encodeToString(packed, Base64.NO_WRAP))
             .putString("paired_base_url", baseUrl)
             .putString("device_id", deviceId)
+            .putString("tls_fingerprint", fingerprint)
             .putBoolean("paired", true)
             .apply()
+    }
+
+    fun load(activity: ComponentActivity): PairCredentials? {
+        val prefs = activity.getSharedPreferences("overos_pairing", 0)
+        if (!prefs.getBoolean("paired", false)) return null
+        val packedText = prefs.getString("access_token_ciphertext", null) ?: return null
+        val packed = Base64.decode(packedText, Base64.NO_WRAP)
+        if (packed.size <= 12) return null
+        val alias = "overos_pair_access_token"
+        val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val key = keyStore.getKey(alias, null) as? javax.crypto.SecretKey ?: return null
+        val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(javax.crypto.Cipher.DECRYPT_MODE, key, javax.crypto.spec.GCMParameterSpec(128, packed.copyOfRange(0, 12)))
+        val token = String(cipher.doFinal(packed.copyOfRange(12, packed.size)), Charsets.UTF_8)
+        val base = prefs.getString("paired_base_url", null) ?: return null
+        val id = prefs.getString("device_id", null) ?: return null
+        val fingerprint = prefs.getString("tls_fingerprint", null) ?: return null
+        return PairCredentials(base, token, id, fingerprint)
     }
 }

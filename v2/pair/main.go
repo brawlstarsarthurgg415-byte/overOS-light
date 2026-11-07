@@ -361,6 +361,7 @@ func(s *PairServer)handler()http.Handler {
 	mux.HandleFunc("/api/v1/pair/devices",s.listDevices)
 	mux.HandleFunc("/api/v1/pair/devices/",s.revokeDevice)
 	mux.HandleFunc("/healthz",func(w http.ResponseWriter,r *http.Request){writeJSON(w,200,map[string]any{"ok":true,"service":"overos-pair"})})
+	registerSystemRoutes(mux,s)
 	return mux
 }
 

@@ -183,6 +183,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }) { Text("Arquivos") }
                         TextButton(onClick = { startActivity(Intent(this@MainActivity, PairingActivity::class.java)) }) { Text("Conectar") }
+                        TextButton(onClick = { startActivity(Intent(this@MainActivity, SystemActivity::class.java)) }) { Text("Meu PC") }
                         TextButton(onClick = { editing = !editing }) { Text("Conexão") }
                     }
 

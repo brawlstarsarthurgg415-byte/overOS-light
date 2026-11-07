@@ -4,6 +4,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="Meu OverOS" android:icon="@drawable/ic_overos" android:usesCleartextTraffic="true" android:allowBackup="false">
         <activity android:name=".PairingActivity" android:exported="false"/>
+        <activity android:name=".SystemActivity" android:exported="false"/>
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
         </activity>
