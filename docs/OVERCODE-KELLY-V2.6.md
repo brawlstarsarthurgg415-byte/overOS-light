@@ -86,6 +86,86 @@ O motor continua responsável por modelos, contexto, memória, planejamento, exe
 
 Este documento registra a arquitetura e a sequência de trabalho. Ele não significa que API, painel, APK, voz ou integração com o botão físico já estejam implementados ou testados.
 
+
+## Família de modelos Kelly — estratégia de desenvolvimento
+
+A Kelly será uma família de modelos e serviços especializados, não um único arquivo de pesos usado para tudo. O objetivo é criar identidade, comportamento, ferramentas, avaliação e personalização próprios. Não afirmar que um modelo foi treinado do zero quando a base vier de pesos abertos.
+
+### Perfis planejados
+
+- **Kelly Live:** modelo pequeno e quantizado para diálogo de baixa latência, roteamento de intenção, atualizações curtas de progresso e conversa por voz.
+- **Kelly Medium:** prioridade máxima. Modelo principal para o Samsung Galaxy S23+, com capacidade geral, planejamento, raciocínio, uso de ferramentas e programação. Deve ser escolhido por benchmarks reais no aparelho, não apenas por tamanho ou marketing.
+- **Kelly Lite:** perfil ainda menor para aparelhos limitados, tarefas simples e economia extrema.
+- **Kelly Code:** especialista em engenharia de software, leitura de repositórios, edição, testes e depuração.
+- **Kelly Vision:** componente multimodal para imagens e, quando houver suporte viável, documentos e câmera.
+- **Kelly Pro:** perfil para computadores/servidores com mais memória e aceleração; não presumir que cabe no celular.
+
+Os perfis podem compartilhar uma base compatível e receber adaptadores/ajustes especializados. Não é necessário manter todos carregados simultaneamente.
+
+### Kelly Dual Intelligence — conversa rápida + execução profunda
+
+A experiência padrão poderá combinar dois agentes:
+
+1. **Kelly Live** mantém a conversa responsiva, recebe texto/voz, esclarece pedidos simples e informa estados reais.
+2. **Orquestrador** classifica a solicitação, estima dificuldade/custo e decide se responde localmente ou cria uma tarefa para a Medium.
+3. **Kelly Medium** recebe o pedido, o contexto relevante e as permissões; cria plano, usa ferramentas, executa etapas e testa o resultado.
+4. **Canal de eventos** transmite progresso estruturado à Live: planejando, pesquisando, lendo arquivos, aguardando aprovação, executando, testando, concluído ou erro.
+5. **Kelly Live** comunica o progresso e apresenta a resposta final validada pela Medium.
+
+A Live não pode inventar progresso nem declarar uma operação concluída sem confirmação do orquestrador/ferramenta. Se a Medium estiver ocupada, descarregada ou indisponível, a Live deve dizer isso claramente, manter a tarefa em fila quando apropriado e permitir cancelar ou alterar o pedido.
+
+### Contratos entre os agentes
+
+- Contexto compartilhado por identificadores de conversa/tarefa e resumos versionados; não duplicar indiscriminadamente todo o histórico.
+- Mensagens internas estruturadas com tipo, tarefa, estado, resultado e referências a arquivos; não depender de texto livre para controlar ferramentas.
+- Uma única fonte de verdade para estado de execução, permissões e resultados.
+- Cancelamento cooperativo, timeout, tentativas limitadas e recuperação após falha.
+- Aprovação humana para ações destrutivas, acesso remoto, instalação de software e operações sensíveis.
+- Separar o canal de conversa do canal de execução: fala e texto da Live não executam comandos por conta própria.
+- Streaming de tokens/eventos para reduzir sensação de espera, sem sacrificar verificações.
+
+### Manual operacional obrigatório da Kelly
+
+Criar e manter um manual versionado que o agente deve consultar conforme a tarefa. O manual terá:
+
+- Identidade, objetivos, limites e regras de segurança.
+- Como inspecionar um repositório antes de editar.
+- Como planejar, dividir tarefas e manter o Plan Mode.
+- Como escolher ferramentas e linguagens; como pedir aprovação.
+- Regras de edição segura: ler antes, mudanças pequenas, preservar compatibilidade e evitar sobrescrever trabalho do usuário.
+- Como executar testes, interpretar falhas, corrigir e repetir com limite.
+- Como lidar com rede indisponível, falta de memória, falta de espaço, dependências e modelos descarregados.
+- Como registrar progresso, decisões, arquivos alterados e rollback.
+- Como distinguir fatos verificados, hipóteses e ações ainda não realizadas.
+- Exemplos de fluxos aprovados e testes de conformidade.
+
+O manual orienta o agente, mas não substitui permissões impostas pelo código. Segurança crítica deve ser aplicada pelo orquestrador e pelas ferramentas, não apenas por instruções em prompt.
+
+### Como desenvolver os modelos próprios
+
+1. Medir hardware-alvo e definir limites de RAM, armazenamento, temperatura, bateria e latência.
+2. Escolher uma base de pesos abertos cuja licença permita o uso pretendido e verificar idioma, contexto e suporte ao formato de inferência.
+3. Criar conjuntos de dados próprios e licenciados: português brasileiro, instruções de ferramentas, programação, planejamento, segurança e recuperação de erros.
+4. Fazer ajuste fino especializado (por exemplo, LoRA/QLoRA quando compatível) e quantização; manter registro da base, licença, dados, receita e versão.
+5. Avaliar em tarefas fixas e reproduzíveis: precisão, alucinações, obediência a permissões, qualidade de código, taxa de conclusão, latência e consumo.
+6. Testar no S23+ real, em condições de bateria/temperatura variadas. Só então escolher tamanho, quantização e runtime.
+7. Manter possibilidade de voltar à versão anterior e comparar cada versão com o conjunto de regressão.
+
+Treinar um modelo fundamental do zero não é o primeiro passo: exige escala de dados e computação muito maior. A estratégia inicial é construir modelos Kelly personalizados sobre bases abertas, com ajustes, ferramentas, avaliação e identidade próprios.
+
+### Critérios específicos para o S23+
+
+- Priorizar Kelly Medium, mas medir a memória disponível durante uso real do Android; não presumir que toda a RAM física esteja livre.
+- Carregar a Medium sob demanda e descarregá-la quando necessário; evitar duas cópias grandes na memória.
+- A Live pode usar um modelo menor, ou uma implementação compacta de roteamento/diálogo, e serviços nativos de fala.
+- Medir latência do primeiro token, tokens por segundo, tempo de transcrição, tempo de síntese, aquecimento e consumo de bateria.
+- Permitir modo de uma única IA quando o aparelho não conseguir manter Live + Medium sem pressão de memória.
+- Voz em tempo real depende também de ASR/TTS, áudio e streaming; um modelo de texto pequeno sozinho não garante conversa por voz instantânea.
+
+### Estado
+
+A família de modelos, a arquitetura Dual Intelligence e o manual são especificações de projeto. Nenhum novo peso Kelly, ajuste fino, runtime móvel, orquestrador dual ou pipeline de voz está implementado ou validado apenas por constar neste documento.
+
 ## Direção visual inicial
 
 - Tema escuro grafite, superfícies em camadas e acento ciano/violeta discreto.
