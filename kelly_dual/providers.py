@@ -91,9 +91,9 @@ def complete(message: str, system: str = "") -> str:
     if provider not in ALLOWED or not model or not key:
         raise RuntimeError("Configure o provedor, modelo e API key em Configurações.")
     if provider == "gemini":
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         parts = ([{"text": system + "\\n\\n"}] if system else []) + [{"text": message}]
-        data = _request(url, {"contents": [{"role": "user", "parts": parts}]}, {})
+        data = _request(url, {"contents": [{"role": "user", "parts": parts}]}, {"x-goog-api-key": key})
         try:
             return data["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, TypeError):
