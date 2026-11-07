@@ -1,38 +1,55 @@
-# Tema visual OverOS para GRUB 2
-title-text: "OVEROS  /  LITE V2"
-title-color: "#eaf3ff"
+# Tema OverOS Lite V2 — inicializacao limpa e legivel em telas antigas
+title-text: "OVEROS"
+title-color: "#f4f8ff"
 title-font: "unicode"
-desktop-color: "#080e1c"
+desktop-color: "#07101f"
 terminal-font: "unicode"
-terminal-box: "terminal_box_*.png"
-+ boot_menu {
-  left = 18%
-  top = 34%
-  width = 64%
-  height = 38%
-  item_font = "unicode"
-  item_color = "#a9bdd8"
-  selected_item_color = "#ffffff"
-  selected_item_pixmap_style = "select_*.png"
-  item_height = 42
-  item_padding = 10
-  item_spacing = 8
-}
+
 + label {
-  top = 18%
+  top = 10%
   left = 0
   width = 100%
   align = "center"
-  text = "Seu computador. Seu sistema."
-  color = "#6daeff"
+  text = "OVEROS LITE"
+  color = "#f4f8ff"
   font = "unicode"
+}
++ label {
+  top = 20%
+  left = 0
+  width = 100%
+  align = "center"
+  text = "SEU COMPUTADOR. SEU SISTEMA."
+  color = "#65c9ff"
+  font = "unicode"
+}
++ boot_menu {
+  left = 15%
+  top = 34%
+  width = 70%
+  height = 38%
+  item_font = "unicode"
+  item_color = "#b8c9df"
+  selected_item_color = "#ffffff"
+  item_height = 44
+  item_padding = 12
+  item_spacing = 8
 }
 + label {
   top = 82%
   left = 0
   width = 100%
   align = "center"
-  text = "ENTER iniciar   |   E editar   |   C terminal"
-  color = "#8195b2"
+  text = "ENTER  INICIAR     E  EDITAR     C  TERMINAL"
+  color = "#8fa7c7"
+  font = "unicode"
+}
++ label {
+  top = 90%
+  left = 0
+  width = 100%
+  align = "center"
+  text = "OVEROS LITE V2"
+  color = "#477aa9"
   font = "unicode"
 }
