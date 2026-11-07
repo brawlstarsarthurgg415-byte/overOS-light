@@ -77,6 +77,11 @@ jobs:
           cp v2/apps/overstore/store.js "$ROOT/usr/share/overos/overstore/store.js"
           cp v2/apps/overstore/CATALOGO.json "$ROOT/usr/share/overos/overstore/CATALOGO.json"
           cp v2/apps/overstore/README.md "$ROOT/usr/share/overos/overstore/README.md"
+          mkdir -p "$ROOT/usr/share/overos/overbrowser"
+          cp v2/apps/overbrowser/index.html "$ROOT/usr/share/overos/overbrowser/index.html"
+          cp v2/apps/overbrowser/browser.css "$ROOT/usr/share/overos/overbrowser/browser.css"
+          cp v2/apps/overbrowser/browser.js "$ROOT/usr/share/overos/overbrowser/browser.js"
+          cp v2/apps/overbrowser/README.md "$ROOT/usr/share/overos/overbrowser/README.md"
           cp v2/branding/overos-logo-horizontal.svg "$ROOT/usr/share/overos/overos-logo.svg"
           cat > "$ROOT/init" <<'INIT'
           #!/bin/sh
