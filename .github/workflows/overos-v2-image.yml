@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: overos-v2-image-${{ github.ref }}
+  group: overos-v2-image-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -81,7 +81,7 @@ jobs:
           scripts/config --enable DRM_I915
           scripts/config --enable INPUT_EVDEV
           make olddefconfig
-          make -j2 bzImage
+          make -j"$(nproc)" bzImage
           mkdir -p "$GITHUB_WORKSPACE/out"
           cp arch/x86/boot/bzImage "$GITHUB_WORKSPACE/out/vmlinuz"
 
