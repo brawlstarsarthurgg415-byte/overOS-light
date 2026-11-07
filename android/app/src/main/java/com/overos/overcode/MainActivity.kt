@@ -70,21 +70,6 @@ class MainActivity : ComponentActivity() {
             val messages = remember { mutableStateListOf<ChatMessage>() }
             val executionLog = remember { mutableStateListOf<String>() }
             val scope = rememberCoroutineScope()
-            val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-                if (uri != null) scope.launch {
-                    try {
-                        val uploaded = withContext(Dispatchers.IO) { uploadFile(base, token, uri) }
-                        pendingFiles.add(uploaded)
-                        status = "Arquivo anexado: ${uploaded.name}"
-                    } catch (e: Exception) { status = "Falha no anexo: ${e.message}" }
-                }
-            }
-            val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                if (granted) {
-                    liveMode = true
-                    startLiveListening()
-                } else status = "Permissão de microfone negada"
-            }
             fun startLiveListening() {
                 if (!liveMode) return
                 startVoiceListening(
