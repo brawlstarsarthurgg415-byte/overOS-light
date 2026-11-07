@@ -114,7 +114,8 @@ class MainActivity : ComponentActivity() {
                                             addMessage(true, msg)
                                             busy=true; status="Kelly está planejando…"
                                             val planPrompt="MODO PLANEJAMENTO: não execute ferramentas nem afirme que alterou arquivos. Produza apenas um plano numerado, dependências, riscos, arquivos prováveis e testes para esta tarefa: ${msg.substringAfter(' ')}"
-                                            val answer=withContext(Dispatchers.IO) { postChat(base,token,planPrompt,chatHistory(messages.dropLast(1))) }
+                                            val planHistory=chatHistory(messages.dropLast(1))
+                                            val answer=withContext(Dispatchers.IO) { postChat(base,token,planPrompt,planHistory) }
                                             addMessage(false, answer); status="Plano pronto"
                                         }
                                         msg.startsWith("/task ", true) || msg.startsWith("/code ", true) -> {
@@ -151,7 +152,8 @@ class MainActivity : ComponentActivity() {
                                         msg.equals("/compact", true) -> addMessage(false, "A compactação inteligente de contexto ainda não está implementada. O histórico local permanece salvo.")
                                         else -> {
                                             addMessage(true, msg); busy=true; status="Kelly está respondendo…"
-                                            val answer=withContext(Dispatchers.IO) { postChat(base,token,msg,chatHistory(messages.dropLast(1))) }
+                                            val history=chatHistory(messages.dropLast(1))
+                                            val answer=withContext(Dispatchers.IO) { postChat(base,token,msg,history) }
                                             addMessage(false, answer); status="Kelly conectada"
                                         }
                                     }
