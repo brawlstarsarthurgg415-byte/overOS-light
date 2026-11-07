@@ -20,6 +20,7 @@ from typing import Callable
 
 from .orchestrator import TaskCoordinator, Task, TaskEvent
 from . import providers
+from .sessions import SessionStore, run_slash_command
 
 MAX_BODY = 64 * 1024
 MAX_PROMPT = 20_000
@@ -55,6 +56,8 @@ def safe_project_dir(raw: object, root: Path) -> str | None:
 
 
 def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
+    sessions = SessionStore()
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "KellyLocalAPI/1.0"
 
@@ -124,6 +127,16 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                 return
             if not self._authorized():
                 return
+            if path == "/api/sessions":
+                self._json(200, {"sessions": sessions.list()})
+                return
+            if path.startswith("/api/sessions/"):
+                session_id = path[len("/api/sessions/"):].strip("/")
+                try:
+                    self._json(200, {"id": session_id, "messages": sessions.get(session_id)})
+                except ValueError as exc:
+                    self._json(404, {"error": str(exc)})
+                return
             if path == "/api/providers":
                 self._json(200, providers.public_config())
                 return
@@ -171,8 +184,26 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                         content = str(item.get("content", ""))[:MAX_PROMPT]
                         if content:
                             safe_history.append({"role": item["role"], "content": content})
-                    answer = providers.complete(message, "Você é Kelly, assistente do OverCode. Responda em português brasileiro, seja clara e útil. Para alterações de código, oriente o usuário a delegar uma tarefa à Kelly Code.", safe_history)
-                    self._json(200, {"answer": answer})
+                    session_id = str(body.get("session_id", "")).strip()
+                    if not session_id:
+                        session_id = sessions.create()
+                    else:
+                        sessions.get(session_id)
+                    command_answer = run_slash_command(
+                        message, safe_history, root, session_id, sessions,
+                        providers.complete, providers.public_config
+                    )
+                    if command_answer is None:
+                        answer = providers.complete(
+                            message,
+                            "Você é Kelly, assistente do OverCode. Responda em português brasileiro, seja clara e útil. Para alterações de código, oriente o usuário a delegar uma tarefa à Kelly Code.",
+                            safe_history
+                        )
+                    else:
+                        answer = command_answer
+                    sessions.append(session_id, "user", message)
+                    sessions.append(session_id, "assistant", answer)
+                    self._json(200, {"answer": answer, "session_id": session_id})
                     return
                 if path != "/api/tasks":
                     self._json(404, {"error": "Rota não encontrada."})
