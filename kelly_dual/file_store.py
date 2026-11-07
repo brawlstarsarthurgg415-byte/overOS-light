@@ -30,7 +30,9 @@ def save_upload(root: Path, name: str, encoded: str, content_type: str="") -> di
     ext=Path(raw_name).suffix.lower()[:16]
     target=folder/(file_id+ext)
     target.write_bytes(data)
-    mime=content_type or mimetypes.guess_type(raw_name)[0] or "application/octet-stream"
+    mime=str(content_type or mimetypes.guess_type(raw_name)[0] or "application/octet-stream")
+    if not re.fullmatch(r"[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+", mime):
+        mime=mimetypes.guess_type(raw_name)[0] or "application/octet-stream"
     meta={"id":file_id,"name":raw_name,"size":len(data),"content_type":mime,
           "sha256":hashlib.sha256(data).hexdigest(),"download":"/api/files/"+file_id}
     (folder/(file_id+".json")).write_text(json.dumps(meta,ensure_ascii=False),encoding="utf-8")
