@@ -161,7 +161,7 @@ class MainActivity : ComponentActivity() {
                 Column(Modifier.fillMaxSize().background(bg).padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.weight(1f)) {
-                            Text("overcode", style = MaterialTheme.typography.titleLarge, color = Color.White)
+                            Text("Meu OverOS", style = MaterialTheme.typography.titleLarge, color = Color.White)
                             Text(status, style = MaterialTheme.typography.labelSmall, color = cyan)
                         }
                         TextButton(onClick = {
@@ -182,7 +182,7 @@ class MainActivity : ComponentActivity() {
                                 } catch (e: Exception) { status = "Falha ao listar arquivos: ${e.message}" }
                             }
                         }) { Text("Arquivos") }
-                        TextButton(onClick = { startActivity(Intent(this@MainActivity, PairingActivity::class.java)) }) { Text("Parear") }
+                        TextButton(onClick = { startActivity(Intent(this@MainActivity, PairingActivity::class.java)) }) { Text("Conectar") }
                         TextButton(onClick = { editing = !editing }) { Text("Conexão") }
                     }
 
