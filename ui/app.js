@@ -106,7 +106,7 @@
     });
   }
   async function uploadSelected(file){
-    if(file.size>8*1024*1024){notify("Cada arquivo pode ter no máximo 8 MB.");return}
+    if(file.size>12*1024*1024){notify("Cada arquivo pode ter no máximo 12 MB.");return}
     const token=apiToken();if(!token)return;
     const encoded=await new Promise((resolve,reject)=>{
       const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]||"");reader.onerror=()=>reject(new Error("Não consegui ler o arquivo."));reader.readAsDataURL(file);
@@ -125,10 +125,15 @@
   function populateVoices(){
     if(!("speechSynthesis" in window))return;
     const select=$("voiceSelect"),previous=select.value;
-    const voices=window.speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith("pt"));
-    select.innerHTML='<option value="">Voz automática</option>';
+    const saved=localStorage.getItem("overcode-voice")||previous;
+    const voices=window.speechSynthesis.getVoices().slice().sort((a,b)=>{
+      const ap=a.lang.toLowerCase().startsWith("pt")?0:1,bp=b.lang.toLowerCase().startsWith("pt")?0:1;
+      return ap-bp||a.lang.localeCompare(b.lang)||a.name.localeCompare(b.name);
+    });
+    select.innerHTML='<option value="">Voz automática (português)</option>';
     voices.forEach(v=>{const option=document.createElement("option");option.value=v.name;option.textContent=v.name+" · "+v.lang;select.append(option)});
-    if(voices.some(v=>v.name===previous))select.value=previous;
+    if(voices.some(v=>v.name===saved))select.value=saved;
+    select.title=voices.length?"Escolha uma voz instalada no dispositivo":"Nenhuma voz carregada pelo navegador";
   }
   function startRecognition(){
     if(!liveMode || !recognition)return;
@@ -172,6 +177,12 @@
     populateVoices();startRecognition();
   }
   $("voiceButton").addEventListener("click",toggleLive);
+  $("voiceSelect").addEventListener("change",e=>{
+    localStorage.setItem("overcode-voice",e.target.value);
+    const selected=e.target.selectedOptions[0];
+    $("voiceStatus").textContent=e.target.value?"Voz: "+selected.textContent:"Voz automática";
+    if(liveMode && window.speechSynthesis.speaking)window.speechSynthesis.cancel();
+  });
   if("speechSynthesis" in window){populateVoices();window.speechSynthesis.onvoiceschanged=populateVoices;}
   function send(){
     const value=prompt.value.trim();if(!value && !pendingAttachments.length)return;
@@ -192,5 +203,21 @@
   document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");activeTab=b.dataset.tab;$("timeline").classList.toggle("hidden",activeTab!=="timeline");$("filesView").classList.toggle("hidden",activeTab!=="files")}));
   $("openSidebar").addEventListener("click",()=>$("sidebar").classList.add("open"));
   $("closeSidebar").addEventListener("click",()=>$("sidebar").classList.remove("open"));
-  $("voiceButton").addEventListener("click",()=>notify("Microfone e síntese de voz serão conectados ao serviço Kelly Live."));
+  async function refreshConnection(){
+    const el=$("connectionStatus");
+    try{
+      const response=await fetch("/api/health",{cache:"no-store"});
+      if(!response.ok)throw new Error("HTTP "+response.status);
+      const data=await response.json();
+      el.innerHTML="<i></i> API "+(data.ok?"online":"offline")+(data.executor_configured?" · Code ativa":" · chat disponível");
+      el.classList.toggle("connected",!!data.ok);
+      el.title="Última verificação: "+now();
+    }catch(_){
+      el.innerHTML="<i></i> API desconectada";
+      el.classList.remove("connected");
+      el.title="Não foi possível alcançar /api/health";
+    }
+  }
+  refreshConnection();
+  setInterval(refreshConnection,15000);
 })();
