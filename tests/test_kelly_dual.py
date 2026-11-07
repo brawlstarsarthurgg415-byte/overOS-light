@@ -37,7 +37,11 @@ class CoordinatorTests(unittest.TestCase):
                 current = coordinator.get(task.id)
             self.assertEqual(current.status, TaskStatus.COMPLETED)
             self.assertEqual(current.result, "Projeto verificado.")
+            deadline = time.time() + 3
             kinds = [event["kind"] for event in coordinator.events(task.id)]
+            while "completed" not in kinds and time.time() < deadline:
+                time.sleep(0.01)
+                kinds = [event["kind"] for event in coordinator.events(task.id)]
             self.assertIn("queued", kinds)
             self.assertIn("working", kinds)
             self.assertIn("testing", kinds)
