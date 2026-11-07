@@ -121,6 +121,22 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
+            val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri != null) scope.launch {
+                    try {
+                        val uploaded = withContext(Dispatchers.IO) { uploadFile(base, token, uri) }
+                        pendingFiles.add(uploaded)
+                        status = "Arquivo anexado: ${uploaded.name}"
+                    } catch (e: Exception) { status = "Falha no anexo: ${e.message}" }
+                }
+            }
+            val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                if (granted) {
+                    liveMode = true
+                    startLiveListening()
+                } else status = "Permissão de microfone negada"
+            }
+
             MaterialTheme(colorScheme = darkColorScheme(background = bg, surface = panel, primary = cyan)) {
                 Column(Modifier.fillMaxSize().background(bg).padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
