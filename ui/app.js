@@ -1,4 +1,4 @@
-/* Painel de demonstração. A ligação com API autenticada/SSE será integrada na próxima etapa. */
+/* Cliente da Kelly API local: comandos e resultados só são exibidos quando chegam do backend. */
 (() => {
   const $ = (id) => document.getElementById(id);
   const messages = $("messages"), prompt = $("prompt"), timeline = $("timeline");
@@ -10,18 +10,52 @@
   function notify(text){toast.textContent=text;toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),2600)}
   function addMessage(role,text){const item=document.createElement("div");item.className="message "+role;const avatar=document.createElement("div");avatar.className="avatar";avatar.textContent=role==="user"?"T":"K";const bubble=document.createElement("div");bubble.className="bubble";bubble.textContent=text;if(role==="user"){item.append(bubble,avatar)}else{item.append(avatar,bubble)}messages.append(item);item.scrollIntoView({behavior:"smooth",block:"end"});welcome.classList.add("hidden")}
   function eventCard({title,detail,kind="info",command,output}){const card=document.createElement("div");card.className="activity-event "+(kind==="running"?"running":kind==="success"?"success":"");const dot=document.createElement("span");dot.className="event-dot";const heading=document.createElement("div");heading.className="event-title";heading.textContent=title;const time=document.createElement("span");time.className="event-time";time.textContent=now();heading.append(time);card.append(dot,heading);if(detail){const d=document.createElement("div");d.className="event-detail";d.textContent=detail;card.append(d)}if(command){const cmd=document.createElement("div");cmd.className="command-card";const head=document.createElement("div");head.className="command-head";head.textContent="TERMINAL · COMANDO EXECUTADO";const code=document.createElement("code");code.textContent="$ "+command;cmd.append(head,code);if(output!==undefined){const out=document.createElement("div");out.className="command-output";out.textContent="SAÍDA\n"+output;cmd.append(out)}card.append(cmd)}timeline.append(card);timeline.scrollTop=timeline.scrollHeight}
-  function showDemo(userText){
-    $("taskTitle").textContent="Demonstração: analisar projeto";
-    $("taskSubtitle").textContent="Kelly Code · atividade simulada, sem executar comandos reais";
-    timeline.innerHTML="";
-    eventCard({title:"Pedido encaminhado para Kelly Code",detail:"A Kelly Light continua disponível para conversar.",kind:"success"});
-    eventCard({title:"Analisando a estrutura do projeto",detail:"Inspecionando diretórios e identificando os arquivos relevantes.",kind:"running"});
-    setTimeout(()=>eventCard({title:"Comando executado",detail:"Exemplo ilustrativo de como o comando e a saída aparecerão quando a integração estiver ativa.",command:"find . -maxdepth 2 -type f | sort",output:"./README.md\n./src/main.py\n./tests/test_main.py\n./ui/index.html"}),450);
-    setTimeout(()=>eventCard({title:"Plano preparado",detail:"1. Ler os arquivos principais. 2. Identificar alterações. 3. Implementar em etapas. 4. Executar testes.",kind:"success"}),900);
-    setTimeout(()=>{eventCard({title:"Aguardando integração real",detail:"Esta tela é uma prévia visual. Nenhum comando foi executado pelo painel.",kind:"info"});$("taskSubtitle").textContent="Prévia visual · aguardando API real"},1400);
-    addMessage("assistant","Entendi. Vou encaminhar esse tipo de trabalho para a Kelly Code. Esta versão mostra uma prévia de como você verá os comandos e os resultados; a execução real será conectada ao motor Overcode na próxima etapa.");
+  const TOKEN_KEY="kelly_api_token";
+  function apiToken(){
+    let token=sessionStorage.getItem(TOKEN_KEY)||"";
+    if(!token){token=window.prompt("Cole o token local da Kelly API (ele fica apenas nesta sessão):")||"";if(token)sessionStorage.setItem(TOKEN_KEY,token)}
+    return token;
   }
-  function send(){const value=prompt.value.trim();if(!value)return;addMessage("user",value);prompt.value="";prompt.style.height="auto";if(/@code|crie|criar|projeto|implemente|program|corrija|corrigir|instale|construa|desenvolva|site|aplicativo/i.test(value)){showDemo(value)}else{addMessage("assistant","A conversa local de demonstração recebeu sua mensagem. Para respostas reais, este painel precisa ser conectado ao modelo Kelly Live.")}}
+  async function followTask(taskId,token){
+    const response=await fetch("/api/tasks/"+encodeURIComponent(taskId)+"/events",{headers:{Authorization:"Bearer "+token}});
+    if(!response.ok)throw new Error("Não foi possível acompanhar a tarefa (HTTP "+response.status+").");
+    const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="";
+    while(true){
+      const {value,done}=await reader.read();if(done)break;
+      buffer+=decoder.decode(value,{stream:true});
+      const blocks=buffer.split("\n\n");buffer=blocks.pop()||"";
+      for(const block of blocks){
+        const line=block.split("\n").find(x=>x.startsWith("data: "));if(!line)continue;
+        let ev;try{ev=JSON.parse(line.slice(6))}catch(_){continue}
+        const data=ev.data||{},kind=ev.type||"info";
+        let command=data.command,output=data.output;
+        if(data.stdout||data.stderr)output=[data.stdout||"",data.stderr?"STDERR\n"+data.stderr:""].filter(Boolean).join("\n");
+        eventCard({title:ev.message||kind,detail:data.detail||data.step||"",kind:["completed","success"].includes(kind)?"success":kind.includes("fail")?"info":kind.includes("start")||kind==="working"?"running":"info",command,output});
+        if(data.files||data.changed_files){files=(data.files||data.changed_files).map(x=>typeof x==="string"?x:(x.path||JSON.stringify(x)));$("filesView").textContent=files.join("\n")||"Nenhum arquivo alterado informado."}
+        if(["completed","failed","cancelled"].includes(ev.status)){
+          const task=await fetch("/api/tasks/"+encodeURIComponent(taskId),{headers:{Authorization:"Bearer "+token}}).then(x=>x.json());
+          if(task.result)addMessage("assistant",task.result);
+          if(task.error)addMessage("assistant","A tarefa falhou: "+task.error);
+          $("taskSubtitle").textContent="Tarefa "+ev.status;return;
+        }
+      }
+    }
+  }
+  async function submitTask(userText){
+    const token=apiToken();if(!token){notify("Token não informado. A tarefa não foi enviada.");return}
+    $("taskTitle").textContent="Enviando tarefa para Kelly Code…";
+    $("taskSubtitle").textContent="Conectando à API local autenticada";
+    timeline.innerHTML="";eventCard({title:"Conectando à Kelly API",detail:"Os eventos serão recebidos do motor conectado; nenhum comando fictício será exibido.",kind:"running"});
+    try{
+      const response=await fetch("/api/tasks",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({prompt:userText,project_dir:"."})});
+      const result=await response.json();if(!response.ok)throw new Error(result.error||("HTTP "+response.status));
+      $("taskTitle").textContent="Tarefa "+result.id.slice(0,8);
+      $("taskSubtitle").textContent="Kelly Code · acompanhando eventos reais";
+      eventCard({title:"Tarefa recebida",detail:"ID: "+result.id,kind:"success"});
+      await followTask(result.id,token);
+    }catch(error){eventCard({title:"Não foi possível executar",detail:error.message,kind:"info"});$("taskSubtitle").textContent="API indisponível ou executor não configurado";addMessage("assistant","Não consegui iniciar a tarefa pela API local: "+error.message+". Verifique se a Kelly API está ativa e se o adaptador do motor foi configurado.")}
+  }
+  function send(){const value=prompt.value.trim();if(!value)return;addMessage("user",value);prompt.value="";prompt.style.height="auto";submitTask(value)}
   $("sendButton").addEventListener("click",send);
   prompt.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
   prompt.addEventListener("input",()=>{prompt.style.height="auto";prompt.style.height=Math.min(prompt.scrollHeight,130)+"px"});
