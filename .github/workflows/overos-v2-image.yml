@@ -53,6 +53,20 @@ jobs:
           scripts/config --enable DEVTMPFS
           scripts/config --enable DEVTMPFS_MOUNT
           scripts/config --enable EXT4_FS
+          scripts/config --enable EXT2_FS
+          scripts/config --enable SCSI
+          scripts/config --enable BLK_DEV_SD
+          scripts/config --enable USB
+          scripts/config --enable USB_STORAGE
+          scripts/config --enable USB_EHCI_HCD
+          scripts/config --enable USB_OHCI_HCD
+          scripts/config --enable USB_UHCI_HCD
+          scripts/config --enable USB_XHCI_HCD
+          scripts/config --enable NETDEVICES
+          scripts/config --enable ETHERNET
+          scripts/config --enable E1000
+          scripts/config --enable E1000E
+          scripts/config --enable R8169
           scripts/config --enable VT
           scripts/config --enable VT_CONSOLE
           scripts/config --enable FB
@@ -75,6 +89,7 @@ jobs:
         run: |
           set -eux
           cd v2/pair
+          CGO_ENABLED=0 go test ./...
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$GITHUB_WORKSPACE/out/over-pair" .
           file "$GITHUB_WORKSPACE/out/over-pair"
 
