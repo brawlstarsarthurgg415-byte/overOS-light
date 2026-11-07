@@ -6,6 +6,7 @@ on:
       - main
       - feature/overcode-kelly-v2.6
       - overcode-cloud-api-v2
+      - overcode-2.7-agent-core
   pull_request:
     branches:
       - main
@@ -26,6 +27,8 @@ jobs:
         run: python -m py_compile kelly_dual/api.py kelly_dual/orchestrator.py kelly_dual/providers.py
       - name: Testar orquestrador Kelly Dual
         run: python -m unittest discover -s tests -p "test_kelly_dual.py" -v
+      - name: Testar sessões e comandos OverCode
+        run: python -m unittest discover -s tests -p "test_kelly_sessions.py" -v
       - name: Testar segurança da API local Kelly
         run: python -m unittest discover -s tests -p "test_kelly_api.py" -v
       - name: Testar armazenamento seguro de provedores
