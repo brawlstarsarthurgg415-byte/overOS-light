@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "family": "Kelly",
+  "selection_policy": "benchmark_before_download",
+  "profiles": {
+    "light": {
+      "display_name": "Kelly Light",
+      "role": "conversa em tempo real, acolhimento, esclarecimentos e encaminhamento",
+      "priority": "latency",
+      "target_parameters": "0.5B-1.5B",
+      "quantization_candidates": ["Q4_K_M", "Q5_K_M"],
+      "must_not": ["executar projetos", "rodar comandos", "declarar tarefas concluidas sem evento confirmado"]
+    },
+    "medium": {
+      "display_name": "Kelly Medium",
+      "role": "modelo principal de raciocinio geral e planejamento",
+      "priority": "quality_on_s23_plus",
+      "target_parameters": "3B-7B (validar no aparelho)",
+      "quantization_candidates": ["Q4_K_M", "IQ4_XS"],
+      "hardware_target": "Samsung Galaxy S23+",
+      "selection_rule": "escolher a maior variante que passe os testes de memoria, temperatura, bateria e latencia no aparelho real"
+    },
+    "code": {
+      "display_name": "Kelly Code",
+      "role": "agente executor de projetos, codigo, ferramentas, testes e depuracao",
+      "backbone": "medium",
+      "specialization": "prompt operacional, dados licenciados e ajuste fino/adaptadores quando avaliados",
+      "priority": "task_completion_and_correctness"
+    },
+    "vision": {
+      "display_name": "Kelly Vision",
+      "role": "analise de imagens e documentos visuais",
+      "priority": "on_demand",
+      "load_policy": "nao manter carregado quando nao estiver em uso"
+    },
+    "pro": {
+      "display_name": "Kelly Pro",
+      "role": "perfil de alta capacidade para computadores e servidores",
+      "priority": "quality",
+      "hardware_target": "computadores com memoria e aceleracao suficientes"
+    }
+  },
+  "runtime": {
+    "light_and_medium_simultaneous": "optional_only_if_device_memory_allows",
+    "medium_load_policy": "load_on_demand",
+    "vision_load_policy": "load_on_demand",
+    "no_hard_task_deadline": true,
+    "cancellation": "cooperative",
+    "persistent_task_queue": true
+  },
+  "notes": [
+    "Estes perfis definem papéis e critérios; não são arquivos de pesos treinados.",
+    "Nenhum modelo é baixado automaticamente por esta configuração.",
+    "A variante Medium deve ser selecionada por benchmarks no S23+ real.",
+    "Kelly Code é o agente executor e pode usar Kelly Medium como modelo-base."
+  ]
+}

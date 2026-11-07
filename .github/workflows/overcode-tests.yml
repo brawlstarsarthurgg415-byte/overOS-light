@@ -1,0 +1,31 @@
+name: Verificar Kelly / Overcode
+
+on:
+  push:
+    branches:
+      - main
+      - feature/overcode-kelly-v2.6
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  testes-estaticos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Verificar instalador e motor
+        run: bash tests/test-overia-code.sh
+      - name: Compilar API e orquestrador Kelly
+        run: python -m py_compile kelly_dual/api.py kelly_dual/orchestrator.py
+      - name: Testar orquestrador Kelly Dual
+        run: python -m unittest discover -s tests -p "test_kelly_dual.py" -v
+      - name: Testar segurança da API local Kelly
+        run: python -m unittest discover -s tests -p "test_kelly_api.py" -v
+      - name: Verificar JavaScript do painel
+        run: node --check ui/app.js

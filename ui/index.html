@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101218">
+  <meta name="description" content="Painel Overcode — Kelly">
+  <title>Overcode — Kelly</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><div class="brand-mark">K</div><div><strong>overcode</strong><small>Kelly AI</small></div><button class="icon-btn mobile-close" id="closeSidebar" aria-label="Fechar menu">×</button></div>
+      <button class="new-chat" id="newChat"><span>＋</span> Nova conversa</button>
+      <div class="nav-label">ESPAÇO DE TRABALHO</div>
+      <button class="nav-item active"><span>◉</span> Conversa atual</button>
+      <button class="nav-item"><span>▤</span> Projetos</button>
+      <button class="nav-item"><span>◷</span> Histórico</button>
+      <div class="nav-label tools-label">FERRAMENTAS</div>
+      <button class="nav-item"><span>⌘</span> Arquivos</button>
+      <button class="nav-item"><span>⌁</span> Conectores</button>
+      <button class="nav-item"><span>⚙</span> Configurações</button>
+      <div class="sidebar-bottom"><div class="profile-dot">T</div><div><strong>OverOS</strong><small>Ambiente local</small></div><span class="online-dot"></span></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="openSidebar" aria-label="Abrir menu">☰</button>
+        <div class="crumb">Kelly <span>/</span> <strong>Conversa</strong></div>
+        <div class="top-actions"><span class="connection"><i></i> Painel de demonstração</span><button class="model-select" id="modelSelect">Kelly Light <span>⌄</span></button></div>
+      </header>
+
+      <section class="workspace">
+        <section class="chat-column">
+          <div class="chat-scroll" id="chatScroll">
+            <div class="welcome" id="welcome">
+              <div class="kelly-orb"><div class="orb-core"></div><span class="orb-ring ring-a"></span><span class="orb-ring ring-b"></span></div>
+              <div class="eyebrow">SUA ASSISTENTE PESSOAL</div>
+              <h1>O que vamos construir<br><em>hoje?</em></h1>
+              <p>A Kelly conversa com você. A Kelly Code cuida do trabalho pesado.</p>
+              <div class="suggestions">
+                <button class="suggestion" data-prompt="Analise meu projeto e crie um plano de melhorias.">⌕ <span><b>Analisar projeto</b><small>Entender arquivos e planejar melhorias</small></span></button>
+                <button class="suggestion" data-prompt="Crie uma interface moderna para meu aplicativo.">▧ <span><b>Criar uma interface</b><small>Desenhar e implementar uma tela</small></span></button>
+                <button class="suggestion" data-prompt="Encontre e corrija os erros do meu código.">⌘ <span><b>Corrigir código</b><small>Investigar, testar e corrigir</small></span></button>
+              </div>
+            </div>
+            <div class="messages" id="messages" aria-live="polite"></div>
+          </div>
+
+          <div class="composer-wrap">
+            <div class="composer">
+              <textarea id="prompt" rows="1" placeholder="Converse com a Kelly... (use @code para delegar)" aria-label="Mensagem"></textarea>
+              <div class="composer-bottom"><div class="composer-tools"><button class="tool-btn" title="Anexar arquivo" aria-label="Anexar arquivo">＋</button><button class="tool-btn" id="voiceButton" title="Voz" aria-label="Voz">♩</button><span class="composer-hint">A Light responde; tarefas complexas vão para Code.</span></div><button class="send-btn" id="sendButton" aria-label="Enviar">↑</button></div>
+            </div>
+            <div class="footnote">A Kelly pode cometer erros. Confira ações importantes antes de aprovar.</div>
+          </div>
+        </section>
+
+        <aside class="activity-panel" id="activityPanel">
+          <div class="activity-head"><div><div class="eyebrow">EXECUÇÃO</div><h2>Atividade da Kelly</h2></div><span class="live-pill"><i></i> AO VIVO</span></div>
+          <div class="task-summary"><div class="task-icon">⌘</div><div class="task-meta"><strong id="taskTitle">Nenhuma tarefa ativa</strong><small id="taskSubtitle">Quando a Code trabalhar, você verá tudo aqui.</small></div></div>
+          <div class="activity-tabs"><button class="tab active" data-tab="timeline">Atividade</button><button class="tab" data-tab="files">Arquivos <span id="fileCount">0</span></button></div>
+          <div class="timeline" id="timeline">
+            <div class="empty-activity"><div class="empty-icon">⌁</div><strong>Seu trabalho, sem caixa-preta.</strong><p>Planos, comandos, saídas e testes aparecerão aqui em tempo real.</p></div>
+          </div>
+          <div class="files-view hidden" id="filesView"><div class="empty-activity"><div class="empty-icon">▤</div><strong>Nenhum arquivo alterado</strong><p>Os arquivos modificados pela tarefa serão listados aqui.</p></div></div>
+          <div class="approval-settings">
+            <div class="approval-title"><div><strong>Autorização rápida</strong><small>Evite confirmações repetidas para ações seguras.</small></div><label class="switch"><input id="safeAutoApprove" type="checkbox"><span></span></label></div>
+            <p>Permite automaticamente apenas operações previamente classificadas como seguras. Exclusões, privilégios, instalações e alterações remotas continuam pedindo aprovação.</p>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js" defer></script>
+</body>
+</html>
