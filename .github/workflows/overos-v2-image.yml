@@ -104,8 +104,6 @@ jobs:
           cp /bin/busybox "$ROOT/bin/busybox"
           gcc -static -O2 -Wall -Wextra -o "$ROOT/usr/bin/over-shell" v2/desktop/over-shell.c
           chmod 0755 "$ROOT/usr/bin/over-shell"
-          cp out/over-pair "$ROOT/usr/bin/over-pair"
-          chmod 0755 "$ROOT/usr/bin/over-pair"
           for app in sh mount umount mkdir sleep uname free df cat clear reboot poweroff hostname tr udhcpc ifconfig route \
             ln ls awk grep sed cp mv chmod; do
             ln -sf busybox "$ROOT/bin/$app"
@@ -138,15 +136,18 @@ jobs:
           hostname OverOS
           mkdir -p /mnt/overos-data /run/overos-pair
           PAIR_DIR=/run/overos-pair
-          # A partição que contém o GRUB também guarda os dados persistentes do Pair.
+          PAIR_BIN=
+          # O agente do celular fica no disco, não dentro do initramfs carregado na RAM.
           for attempt in 1 2 3 4 5; do
             for dev in /dev/sd[a-z]1 /dev/vd[a-z]1 /dev/mmcblk*p1; do
               [ -b "$dev" ] || continue
               if mount -t ext2 -o rw "$dev" /mnt/overos-data 2>/dev/null; then
                 if [ -f /mnt/overos-data/boot/grub/grub.cfg ]; then
                   PAIR_DIR=/mnt/overos-data/overos-data/pair
-                  mkdir -p "$PAIR_DIR"
+                  PAIR_BIN=/mnt/overos-data/overos-data/apps/over-pair
+                  mkdir -p "$PAIR_DIR" /mnt/overos-data/overos-data/apps
                   chmod 700 "$PAIR_DIR"
+                  if [ -x "$PAIR_BIN" ]; then ln -sf "$PAIR_BIN" /usr/bin/over-pair; fi
                   echo "Armazenamento persistente do OverOS encontrado."
                   break 2
                 fi
@@ -187,11 +188,15 @@ jobs:
           if [ -f /etc/overos/setup.conf ]; then . /etc/overos/setup.conf; fi
           echo "Usuario configurado: ${username:-over}"
           if [ "${pair:-no}" = yes ]; then
-            echo "Iniciando pareamento solicitado pelo usuario..."
-            /usr/bin/over-pair serve --state-dir "$PAIR_DIR" >/run/over-pair.log 2>&1 &
-            echo $! >/run/over-pair.pid
-            sleep 1
-            /usr/bin/over-pair screen
+            if [ -x /usr/bin/over-pair ]; then
+              echo "Iniciando pareamento solicitado pelo usuario..."
+              /usr/bin/over-pair serve --state-dir "$PAIR_DIR" >/run/over-pair.log 2>&1 &
+              echo $! >/run/over-pair.pid
+              sleep 1
+              /usr/bin/over-pair screen
+            else
+              echo "Pareamento indisponivel: armazenamento persistente nao foi montado."
+            fi
           fi
           echo "Utilitarios leves: overosctl"
           if [ "$session" != terminal ] && [ -x /usr/bin/over-shell ]; then
@@ -219,8 +224,9 @@ jobs:
           sudo mkfs.ext2 -F -L OVEROS "${LOOP}p1"
           sudo mkdir -p "$RUNNER_TEMP/overos-mnt"
           sudo mount "${LOOP}p1" "$RUNNER_TEMP/overos-mnt"
-          sudo mkdir -p "$RUNNER_TEMP/overos-mnt/boot/grub/themes/overos" "$RUNNER_TEMP/overos-mnt/boot/grub/fonts" "$RUNNER_TEMP/overos-mnt/overos-data/pair"
+          sudo mkdir -p "$RUNNER_TEMP/overos-mnt/boot/grub/themes/overos" "$RUNNER_TEMP/overos-mnt/boot/grub/fonts" "$RUNNER_TEMP/overos-mnt/overos-data/pair" "$RUNNER_TEMP/overos-mnt/overos-data/apps"
           sudo chmod 700 "$RUNNER_TEMP/overos-mnt/overos-data/pair"
+          sudo install -m 0755 out/over-pair "$RUNNER_TEMP/overos-mnt/overos-data/apps/over-pair"
           sudo cp v2/boot/grub-theme/theme.txt "$RUNNER_TEMP/overos-mnt/boot/grub/themes/overos/theme.txt"
           sudo cp /usr/share/grub/unicode.pf2 "$RUNNER_TEMP/overos-mnt/boot/grub/fonts/unicode.pf2"
           sudo cp out/vmlinuz "$RUNNER_TEMP/overos-mnt/boot/vmlinuz"
