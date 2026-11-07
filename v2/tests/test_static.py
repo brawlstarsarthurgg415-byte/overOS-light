@@ -13,6 +13,8 @@ class V2StaticTests(unittest.TestCase):
             'apps/overstore/index.html', 'apps/overstore/store.css',
             'apps/overstore/store.js', 'apps/overstore/README.md',
             'apps/overstore/CATALOGO.json', 'apps/overbrowser/README.md',
+            'apps/overbrowser/index.html', 'apps/overbrowser/browser.css',
+            'apps/overbrowser/browser.js',
         ):
             with self.subTest(path=rel):
                 self.assertTrue((ROOT / rel).is_file())
@@ -45,6 +47,17 @@ class V2StaticTests(unittest.TestCase):
         self.assertNotIn('new Function', js)
         self.assertNotIn('https://', html)
         self.assertNotIn('http://', html)
+
+    def test_overbrowser_ui_is_local_and_declares_engine_boundary(self):
+        html = (ROOT / 'apps/overbrowser/index.html').read_text()
+        js = (ROOT / 'apps/overbrowser/browser.js').read_text()
+        readme = (ROOT / 'apps/overbrowser/README.md').read_text()
+        self.assertIn('id="address"', html)
+        self.assertIn('id="tabs"', html)
+        self.assertIn('window.overBrowser', js)
+        self.assertIn('motor web', readme.lower())
+        self.assertNotIn('eval(', js)
+        self.assertNotIn('new Function', js)
 
     def test_pid1_starts_overos_session(self):
         c = (ROOT / 'init/overos-init.c').read_text()
