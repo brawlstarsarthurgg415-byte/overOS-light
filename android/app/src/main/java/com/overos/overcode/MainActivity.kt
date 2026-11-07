@@ -42,6 +42,7 @@ private val cyan = Color(0xFF69D9DC)
 
 private data class ChatMessage(val fromUser: Boolean, val text: String)
 private data class UploadedFile(val id: String, val name: String)
+private data class RemoteFile(val name: String, val endpoint: String, val size: Long)
 private enum class AgentMode { KELLY, CODE }
 
 class MainActivity : ComponentActivity() {
@@ -72,6 +73,9 @@ class MainActivity : ComponentActivity() {
             var selectedVoice by remember { mutableStateOf(prefs.getString("voice", "") ?: "") }
             selectedVoiceName = selectedVoice.ifBlank { null }
             val pendingFiles = remember { mutableStateListOf<UploadedFile>() }
+            var showFiles by remember { mutableStateOf(false) }
+            var remoteFiles by remember { mutableStateOf(emptyList<RemoteFile>()) }
+            var downloadTarget by remember { mutableStateOf<RemoteFile?>(null) }
             val messages = remember { mutableStateListOf<ChatMessage>() }
             val executionLog = remember { mutableStateListOf<String>() }
             val scope = rememberCoroutineScope()
@@ -142,6 +146,17 @@ class MainActivity : ComponentActivity() {
                 } else status = "Permissão de microfone negada"
             }
 
+            val downloadPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+                val target = downloadTarget
+                if (uri != null && target != null) scope.launch {
+                    try {
+                        withContext(Dispatchers.IO) { downloadRemoteFile(base, token, target, uri) }
+                        status = "Arquivo baixado: ${target.name}"
+                    } catch (e: Exception) { status = "Falha no download: ${e.message}" }
+                    downloadTarget = null
+                }
+            }
+
             MaterialTheme(colorScheme = darkColorScheme(background = bg, surface = panel, primary = cyan)) {
                 Column(Modifier.fillMaxSize().background(bg).padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -157,6 +172,16 @@ class MainActivity : ComponentActivity() {
                                 } catch (e: Exception) { status = "API indisponível: ${e.message}" }
                             }
                         }) { Text("Status") }
+                        TextButton(onClick = {
+                            scope.launch {
+                                status = "Carregando arquivos…"
+                                try {
+                                    remoteFiles = withContext(Dispatchers.IO) { listRemoteFiles(base, token) }
+                                    showFiles = true
+                                    status = "Arquivos carregados"
+                                } catch (e: Exception) { status = "Falha ao listar arquivos: ${e.message}" }
+                            }
+                        }) { Text("Arquivos") }
                         TextButton(onClick = { editing = !editing }) { Text("Conexão") }
                     }
 
@@ -366,6 +391,25 @@ class MainActivity : ComponentActivity() {
                         }) { Text(if (busy) "…" else "➤") }
                     }
                 }
+                if (showFiles) {
+                    AlertDialog(
+                        onDismissRequest = { showFiles = false },
+                        title = { Text("Arquivos do OverCode") },
+                        text = {
+                            Column {
+                                if (remoteFiles.isEmpty()) Text("Ainda não há arquivos enviados ou gerados.")
+                                remoteFiles.forEach { file ->
+                                    TextButton(onClick = {
+                                        downloadTarget = file
+                                        showFiles = false
+                                        downloadPicker.launch(file.name)
+                                    }) { Text("↓ ${file.name} · ${(file.size / 1024).toInt()} KB") }
+                                }
+                            }
+                        },
+                        confirmButton = { TextButton(onClick = { showFiles = false }) { Text("Fechar") } }
+                    )
+                }
                 if (showVoicePicker) {
                     AlertDialog(
                         onDismissRequest = { showVoicePicker = false },
@@ -491,6 +535,47 @@ class MainActivity : ComponentActivity() {
         textToSpeech?.shutdown()
         textToSpeech = null
         super.onDestroy()
+    }
+
+    private fun listRemoteFiles(base: String, token: String): List<RemoteFile> {
+        fun getJson(path: String): JSONObject {
+            val conn = authorizedConnection(base.trimEnd('/') + path, token, "GET")
+            try {
+                conn.readTimeout = 15000
+                val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
+                val body = stream.bufferedReader().use { it.readText() }
+                if (conn.responseCode !in 200..299) throw IllegalStateException("HTTP ${conn.responseCode}: $body")
+                return JSONObject(body)
+            } finally { conn.disconnect() }
+        }
+        val files = mutableListOf<RemoteFile>()
+        val uploads = getJson("/api/files").optJSONArray("files") ?: org.json.JSONArray()
+        for (i in 0 until uploads.length()) {
+            val item = uploads.getJSONObject(i)
+            files.add(RemoteFile(item.optString("name"), "/api/files/" + item.optString("id"), item.optLong("size")))
+        }
+        val projects = getJson("/api/project-files").optJSONArray("files") ?: org.json.JSONArray()
+        for (i in 0 until projects.length()) {
+            val item = projects.getJSONObject(i)
+            val path = item.optString("path")
+            val encoded = path.split("/").joinToString("/") { Uri.encode(it) }
+            files.add(RemoteFile(item.optString("name"), "/api/project-files/" + encoded, item.optLong("size")))
+        }
+        return files
+    }
+
+    private fun downloadRemoteFile(base: String, token: String, file: RemoteFile, destination: Uri) {
+        val conn = authorizedConnection(base.trimEnd('/') + file.endpoint, token, "GET")
+        try {
+            conn.readTimeout = 30000
+            if (conn.responseCode !in 200..299) {
+                val body = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                throw IllegalStateException("HTTP ${conn.responseCode}: $body")
+            }
+            contentResolver.openOutputStream(destination)?.use { output ->
+                conn.inputStream.use { input -> input.copyTo(output) }
+            } ?: throw IllegalStateException("Não foi possível salvar o arquivo no destino escolhido.")
+        } finally { conn.disconnect() }
     }
 
     private fun getApiStatus(base: String): String {
