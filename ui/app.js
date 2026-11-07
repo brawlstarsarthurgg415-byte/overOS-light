@@ -6,6 +6,7 @@
   let activeTab = "timeline";
   let files = [];
   let chatHistory = [];
+  let chatSessionId = sessionStorage.getItem("overcode-session-id") || "";
   let toastTimer;
   const now = () => new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
   function notify(text){toast.textContent=text;toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),2600)}
@@ -58,13 +59,13 @@
       await followTask(result.id,token);
     }catch(error){eventCard({title:"Não foi possível executar",detail:error.message,kind:"info"});$("taskSubtitle").textContent="API indisponível ou executor não configurado";addMessage("assistant","Não consegui iniciar a tarefa pela API local: "+error.message+". Verifique se a Kelly API está ativa e se o adaptador do motor foi configurado.")}
   }
-  async function chatWithKelly(message){const token=apiToken();if(!token){notify("Configure o token da Kelly API em Configurações.");return}try{const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({message,history:chatHistory})});const d=await r.json();if(!r.ok)throw new Error(d.error||("HTTP "+r.status));const answer=d.answer||"Sem resposta do provedor.";chatHistory.push({role:"user",content:message},{role:"assistant",content:answer});chatHistory=chatHistory.slice(-30);addMessage("assistant",answer)}catch(e){addMessage("assistant","Falha na conversa: "+e.message+". Confira a API Key em Configurações.")}}
+  async function chatWithKelly(message){const token=apiToken();if(!token){notify("Configure o token da Kelly API em Configurações.");return}try{const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({message,history:chatHistory,session_id:chatSessionId})});const d=await r.json();if(!r.ok)throw new Error(d.error||("HTTP "+r.status));const answer=d.answer||"Sem resposta do provedor.";if(d.session_id){chatSessionId=d.session_id;sessionStorage.setItem("overcode-session-id",chatSessionId)}chatHistory.push({role:"user",content:message},{role:"assistant",content:answer});chatHistory=chatHistory.slice(-30);addMessage("assistant",answer)}catch(e){addMessage("assistant","Falha na conversa: "+e.message+". Confira a API Key em Configurações.")}}
   function send(){const value=prompt.value.trim();if(!value)return;addMessage("user",value);prompt.value="";prompt.style.height="auto";if(/@code|crie|criar|projeto|implemente|program|corrija|corrigir|instale|construa|desenvolva|site|aplicativo|configure|analise o repositório|execute os testes/i.test(value)){submitTask(value)}else{chatWithKelly(value)}}
   $("sendButton").addEventListener("click",send);
   prompt.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
   prompt.addEventListener("input",()=>{prompt.style.height="auto";prompt.style.height=Math.min(prompt.scrollHeight,130)+"px"});
   document.querySelectorAll(".suggestion").forEach(b=>b.addEventListener("click",()=>{prompt.value=b.dataset.prompt;send()}));
-  $("newChat").addEventListener("click",()=>{messages.innerHTML="";chatHistory=[];timeline.innerHTML='<div class="empty-activity"><div class="empty-icon">⌁</div><strong>Seu trabalho, sem caixa-preta.</strong><p>Planos, comandos, saídas e testes aparecerão aqui em tempo real.</p></div>';$("taskTitle").textContent="Nenhuma tarefa ativa";$("taskSubtitle").textContent="Quando a Code trabalhar, você verá tudo aqui.";welcome.classList.remove("hidden");notify("Nova conversa iniciada")});
+  $("newChat").addEventListener("click",()=>{messages.innerHTML="";chatHistory=[];chatSessionId="";sessionStorage.removeItem("overcode-session-id");timeline.innerHTML='<div class="empty-activity"><div class="empty-icon">⌁</div><strong>Seu trabalho, sem caixa-preta.</strong><p>Planos, comandos, saídas e testes aparecerão aqui em tempo real.</p></div>';$("taskTitle").textContent="Nenhuma tarefa ativa";$("taskSubtitle").textContent="Quando a Code trabalhar, você verá tudo aqui.";welcome.classList.remove("hidden");notify("Nova conversa iniciada")});
   $("safeAutoApprove").addEventListener("change",e=>notify(e.target.checked?"Aprovação automática de ações seguras ativada (prévia).":"Aprovação automática desativada."));
   document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");activeTab=b.dataset.tab;$("timeline").classList.toggle("hidden",activeTab!=="timeline");$("filesView").classList.toggle("hidden",activeTab!=="files")}));
   $("openSidebar").addEventListener("click",()=>$("sidebar").classList.add("open"));
