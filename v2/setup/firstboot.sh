@@ -28,8 +28,12 @@ echo "  3) Interface grafica"
 printf "Opcao [1]: "
 read MODE
 case "$MODE" in 2) MODE=terminal;; 3) MODE=gui;; *) MODE=auto;; esac
-printf 'username=%s\navatar=%s\nsession=%s\nsetup_complete=1\n' \
-  "$USERNAME" "$AVATAR" "$MODE" > "$CFG"
+echo
+printf "Deseja configurar o aplicativo Meu OverOS no celular? [s/N]: "
+read PAIR
+case "$PAIR" in s|S|sim|SIM) PAIR=yes;; *) PAIR=no;; esac
+printf 'username=%s\navatar=%s\nsession=%s\npair=%s\nsetup_complete=1\n' \
+  "$USERNAME" "$AVATAR" "$MODE" "$PAIR" > "$CFG"
 chmod 600 "$CFG"
 # A conta só é criada quando o utilitário existe no sistema.
 if command -v adduser >/dev/null 2>&1; then
@@ -41,9 +45,11 @@ echo "Usuario selecionado: $USERNAME"
 echo "Avatar: $AVATAR"
 echo "Inicializacao: $MODE"
 echo
-echo "Nota: a imagem experimental ainda nao possui rootfs persistente."
-echo "A conta e as preferencias so serao permanentes quando o disco"
-echo "de dados do OverOS estiver integrado."
+if [ "$PAIR" = yes ]; then
+  echo "O pareamento sera iniciado agora, com QR Code e codigo temporario."
+else
+  echo "O aplicativo pode ser conectado depois em Configuracoes > Meu OverOS."
+fi
 echo
 printf "Pressione Enter para continuar..."
 read _
