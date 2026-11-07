@@ -14,13 +14,13 @@
       <div class="brand"><div class="brand-mark">K</div><div><strong>overcode</strong><small>Kelly AI</small></div><button class="icon-btn mobile-close" id="closeSidebar" aria-label="Fechar menu">×</button></div>
       <button class="new-chat" id="newChat"><span>＋</span> Nova conversa</button>
       <div class="nav-label">ESPAÇO DE TRABALHO</div>
-      <button class="nav-item active"><span>◉</span> Conversa atual</button>
-      <button class="nav-item"><span>▤</span> Projetos</button>
-      <button class="nav-item"><span>◷</span> Histórico</button>
+      <button class="nav-item active" data-view="chat"><span>◉</span> Conversa atual</button>
+      <button class="nav-item" data-view="projects"><span>▤</span> Projetos</button>
+      <button class="nav-item" data-view="history"><span>◷</span> Histórico</button>
       <div class="nav-label tools-label">FERRAMENTAS</div>
-      <button class="nav-item"><span>⌘</span> Arquivos</button>
-      <button class="nav-item"><span>⌁</span> Conectores</button>
-      <button class="nav-item"><span>⚙</span> Configurações</button>
+      <button class="nav-item" data-view="files"><span>⌘</span> Arquivos</button>
+      <button class="nav-item" data-view="connectors"><span>⌁</span> Conectores</button>
+      <button class="nav-item" data-view="settings"><span>⚙</span> Configurações</button>
       <div class="sidebar-bottom"><div class="profile-dot">T</div><div><strong>OverOS</strong><small>Ambiente local</small></div><span class="online-dot"></span></div>
     </aside>
 
@@ -28,7 +28,7 @@
       <header class="topbar">
         <button class="icon-btn menu-btn" id="openSidebar" aria-label="Abrir menu">☰</button>
         <div class="crumb">Kelly <span>/</span> <strong>Conversa</strong></div>
-        <div class="top-actions"><span class="connection"><i></i> Painel de demonstração</span><button class="model-select" id="modelSelect">Kelly Light <span>⌄</span></button></div>
+        <div class="top-actions"><span class="connection" id="connectionStatus"><i></i> Verificando API…</span><button class="model-select" id="modelSelect">Kelly Light <span>⌄</span></button></div>
       </header>
 
       <section class="workspace">
@@ -71,6 +71,30 @@
           </div>
         </aside>
       </section>
+      <section class="settings-view hidden" id="settingsView">
+        <div class="settings-heading"><div class="eyebrow">CENTRAL DE CONTROLE</div><h1>Configurações</h1><p>Conecte a Kelly a um provedor de IA. A chave fica armazenada somente no servidor.</p></div>
+        <div class="settings-grid">
+          <section class="settings-card">
+            <div class="settings-card-head"><div><h2>Provedor de inteligência artificial</h2><p>Escolha o serviço que alimenta as conversas da Kelly.</p></div><span class="settings-icon">✦</span></div>
+            <label for="providerSelect">Provedor</label><select id="providerSelect"><option value="openai-compatible">OpenAI / compatível</option><option value="gemini">Google Gemini</option></select>
+            <label for="providerModel">Modelo</label><input id="providerModel" type="text" placeholder="Ex.: gpt-4o-mini ou gemini-2.5-flash">
+            <div id="baseUrlGroup"><label for="providerBaseUrl">Endereço da API</label><input id="providerBaseUrl" type="url" placeholder="https://api.openai.com/v1"></div>
+            <label for="providerKey">API Key do provedor</label><input id="providerKey" type="password" autocomplete="new-password" placeholder="Cole sua chave aqui (não será exibida novamente)">
+            <small class="field-help" id="keyStatus">A chave nunca é devolvida ao navegador.</small>
+            <div class="settings-actions"><button class="secondary-btn" id="testProvider">Testar conexão</button><button class="primary-btn" id="saveProvider">Salvar provedor</button></div>
+            <div class="settings-feedback" id="providerFeedback" role="status"></div>
+          </section>
+          <section class="settings-card">
+            <div class="settings-card-head"><div><h2>Conexão com o motor OverCode</h2><p>Autenticação entre a interface e a API que executa as tarefas.</p></div><span class="settings-icon">⌘</span></div>
+            <label for="apiTokenInput">Token da Kelly API</label><input id="apiTokenInput" type="password" autocomplete="off" placeholder="Token local do servidor">
+            <small class="field-help">É diferente da API Key do provedor. Fica apenas nesta sessão do navegador.</small>
+            <div class="settings-actions"><button class="secondary-btn" id="saveApiToken">Guardar nesta sessão</button><button class="secondary-btn" id="checkApi">Verificar API</button></div>
+            <div class="settings-feedback" id="apiFeedback" role="status"></div>
+          </section>
+        </div>
+        <div class="settings-note"><strong>Privacidade e segurança</strong><p>A API Key do provedor é gravada no servidor com permissão restrita ao usuário do serviço. Em uma publicação online, use HTTPS, mantenha o token da Kelly forte e não exponha a porta diretamente sem um proxy seguro.</p></div>
+      </section>
+      <section class="simple-view hidden" id="simpleView"><div class="eyebrow">OVERCode WORKSPACE</div><h1 id="simpleTitle">Projetos</h1><p id="simpleDescription">Esta área será conectada ao motor do OverCode.</p></section>
     </main>
   </div>
   <div class="toast" id="toast" role="status"></div>
