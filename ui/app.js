@@ -67,5 +67,4 @@
   $("openSidebar").addEventListener("click",()=>$("sidebar").classList.add("open"));
   $("closeSidebar").addEventListener("click",()=>$("sidebar").classList.remove("open"));
   $("voiceButton").addEventListener("click",()=>notify("Microfone e síntese de voz serão conectados ao serviço Kelly Live."));
-  $("modelSelect").addEventListener("click",()=>notify("Seletor de modelos será conectado à família Kelly."));
 })();
