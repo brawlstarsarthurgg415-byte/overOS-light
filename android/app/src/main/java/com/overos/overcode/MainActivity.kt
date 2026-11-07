@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
         }
         val prefs = getSharedPreferences("overcode", MODE_PRIVATE)
         setContent {
-            var base by remember { mutableStateOf(prefs.getString("base", "http://192.168.3.30:8765") ?: "") }
+            var base by remember { mutableStateOf(prefs.getString("base", "http://127.0.0.1:8765") ?: "") }
             var token by remember { mutableStateOf(prefs.getString("token", "") ?: "") }
             var editing by remember { mutableStateOf(base.isBlank() || token.isBlank()) }
             var input by remember { mutableStateOf("") }
