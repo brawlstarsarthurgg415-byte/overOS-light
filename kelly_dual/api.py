@@ -161,7 +161,17 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                     message = str(body.get("message", "")).strip()
                     if not message or len(message) > MAX_PROMPT:
                         raise ValueError("Informe uma mensagem de 1 a 20.000 caracteres.")
-                    answer = providers.complete(message, "Você é Kelly, assistente do OverCode. Responda em português brasileiro, seja clara e útil. Para alterações de código, oriente o usuário a delegar uma tarefa à Kelly Code.")
+                    history = body.get("history", [])
+                    if not isinstance(history, list) or len(history) > 30:
+                        raise ValueError("O histórico precisa ser uma lista com até 30 mensagens.")
+                    safe_history = []
+                    for item in history:
+                        if not isinstance(item, dict) or item.get("role") not in {"user", "assistant"}:
+                            raise ValueError("Mensagem inválida no histórico.")
+                        content = str(item.get("content", ""))[:MAX_PROMPT]
+                        if content:
+                            safe_history.append({"role": item["role"], "content": content})
+                    answer = providers.complete(message, "Você é Kelly, assistente do OverCode. Responda em português brasileiro, seja clara e útil. Para alterações de código, oriente o usuário a delegar uma tarefa à Kelly Code.", safe_history)
                     self._json(200, {"answer": answer})
                     return
                 if path != "/api/tasks":
