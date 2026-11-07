@@ -169,7 +169,8 @@ class MainActivity : ComponentActivity() {
             }
 
             MaterialTheme(colorScheme = darkColorScheme(background = bg, surface = panel, primary = cyan)) {
-                Column(Modifier.fillMaxSize().background(bg).padding(16.dp)\n                    .onPreviewKeyEvent { event ->
+                Column(Modifier.fillMaxSize().background(bg).padding(16.dp)
+                    .onPreviewKeyEvent { event ->
                         if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                         if (keyboardEditing) return@onPreviewKeyEvent false
                         when (event.key) {
