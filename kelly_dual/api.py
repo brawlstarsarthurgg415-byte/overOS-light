@@ -303,6 +303,8 @@ def main():
         raise SystemExit("Defina KELLY_API_TOKEN com pelo menos 32 caracteres.")
     root = Path(os.environ.get("OVEROS_PROJECT_ROOT", str(Path.cwd()))).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
+    if not os.environ.get("KELLY_EXECUTOR", "").strip():
+        os.environ["KELLY_EXECUTOR"] = "kelly_dual.executor:execute_task"
     try:
         executor = load_executor()
     except RuntimeError as exc:
