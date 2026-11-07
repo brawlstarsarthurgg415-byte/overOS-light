@@ -86,21 +86,32 @@ def _request(url: str, payload: dict, headers: dict) -> dict:
     return result
 
 
-def complete(message: str, system: str = "") -> str:
+def complete(message: str, system: str = "", history: list | None = None) -> str:
     cfg = _read()
     provider, model, key = cfg.get("provider"), cfg.get("model"), cfg.get("api_key")
     if provider not in ALLOWED or not model or not key:
         raise RuntimeError("Configure o provedor, modelo e API key em Configurações.")
+    history = history or []
     if provider == "gemini":
+        contents = []
+        for item in history[-30:]:
+            role = "model" if item.get("role") == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": str(item.get("content", ""))}]})
+        contents.append({"role": "user", "parts": [{"text": message}]})
+        payload = {"contents": contents}
+        if system:
+            payload["systemInstruction"] = {"parts": [{"text": system}]}
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-        parts = ([{"text": system + "\n\n"}] if system else []) + [{"text": message}]
-        data = _request(url, {"contents": [{"role": "user", "parts": parts}]}, {"x-goog-api-key": key})
+        data = _request(url, payload, {"x-goog-api-key": key})
         try:
             return data["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, TypeError):
             raise RuntimeError("O Gemini não retornou texto.") from None
     base = str(cfg.get("base_url") or "https://api.openai.com/v1").rstrip("/")
     messages = ([{"role": "system", "content": system}] if system else [])
+    for item in history[-30:]:
+        if item.get("role") in {"user", "assistant"}:
+            messages.append({"role": item["role"], "content": str(item.get("content", ""))})
     messages.append({"role": "user", "content": message})
     data = _request(base + "/chat/completions",
                     {"model": model, "messages": messages, "stream": False},
