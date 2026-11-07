@@ -52,6 +52,13 @@ jobs:
           scripts/config --enable DEVTMPFS
           scripts/config --enable DEVTMPFS_MOUNT
           scripts/config --enable EXT4_FS
+          scripts/config --enable VT
+          scripts/config --enable VT_CONSOLE
+          scripts/config --enable FB
+          scripts/config --enable FB_VESA
+          scripts/config --enable DRM
+          scripts/config --enable DRM_SIMPLEDRM
+          scripts/config --enable INPUT_EVDEV
           make olddefconfig
           make -j2 bzImage
           mkdir -p "$GITHUB_WORKSPACE/out"
@@ -64,6 +71,8 @@ jobs:
           mkdir -p "$ROOT"/{bin,sbin,etc,proc,sys,dev,run,tmp,root,usr/bin,usr/share/overos}
           chmod 1777 "$ROOT/tmp"
           cp /bin/busybox "$ROOT/bin/busybox"
+          gcc -static -O2 -Wall -Wextra -o "$ROOT/usr/bin/over-shell" v2/desktop/over-shell.c
+          chmod 0755 "$ROOT/usr/bin/over-shell"
           for app in sh mount mkdir sleep uname free df cat clear reboot poweroff hostname \
             ln ls awk grep sed cp mv chmod; do
             ln -sf busybox "$ROOT/bin/$app"
@@ -94,7 +103,12 @@ jobs:
           echo
           echo "Bem-vindo ao OverOS Lite V2"
           echo "Utilitarios leves disponíveis: overosctl, status, files e settings."
-          echo "Digite 'overosctl' para abrir o menu de aplicativos."
+          echo "Iniciando a interface grafica OverOS..."
+          if [ -x /usr/bin/over-shell ]; then
+            /usr/bin/over-shell
+            echo "A interface grafica nao iniciou; verifique o framebuffer /dev/fb0."
+          fi
+          echo "Digite overosctl para abrir os utilitarios."
           exec /bin/sh
           INIT
           chmod +x "$ROOT/init"
