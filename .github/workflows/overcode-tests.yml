@@ -24,7 +24,7 @@ jobs:
       - name: Verificar instaladores
         run: bash -n instalar-kelly-api.sh && bash tests/test-overia-code.sh
       - name: Compilar API e orquestrador Kelly
-        run: python -m py_compile kelly_dual/api.py kelly_dual/orchestrator.py kelly_dual/providers.py kelly_dual/sessions.py kelly_dual/executor.py
+        run: python -m py_compile kelly_dual/api.py kelly_dual/orchestrator.py kelly_dual/providers.py kelly_dual/sessions.py kelly_dual/executor.py kelly_dual/file_store.py
       - name: Testar orquestrador Kelly Dual
         run: python -m unittest discover -s tests -p "test_kelly_dual.py" -v
       - name: Testar sessões e comandos OverCode
@@ -35,5 +35,7 @@ jobs:
         run: python -m unittest discover -s tests -p "test_kelly_api.py" -v
       - name: Testar armazenamento seguro de provedores
         run: python -m unittest discover -s tests -p "test_kelly_providers.py" -v
+      - name: Testar armazenamento e anexos
+        run: python -m unittest discover -s tests -p "test_kelly_file_store.py" -v
       - name: Verificar JavaScript do painel
         run: node --check ui/app.js && node --check ui/settings.js
