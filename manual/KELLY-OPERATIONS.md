@@ -70,7 +70,17 @@ Medir por versão: qualidade em português brasileiro, seguimento de instruçõe
 
 O modelo Medium só será considerado protagonista no S23+ depois de passar uma bateria reproduzível de testes no aparelho real. O tamanho maior não garante inteligência maior em uso prático.
 
-## 8. Honestidade operacional
+## 8. Transparência visual e autorização em lote
+
+- Site e APK devem mostrar a atividade da Kelly em tempo real: plano, ferramenta, comando, diretório, stdout/stderr, arquivos alterados, testes e resultado.
+- A conversa da Kelly Light deve continuar utilizável enquanto Kelly Code trabalha.
+- O terminal permanece simples e textual; não remover nem substituir o fluxo de comandos existente.
+- A preferência "Aceitar automaticamente ações seguras" só pode abranger operações somente leitura e allowlisted, com escopo limitado à tarefa/sessão.
+- Um comando "Aceitar tudo" aprova em lote apenas as ações seguras pendentes que já foram apresentadas. Nunca autoriza operações destrutivas, privilegiadas, instalação, acesso remoto ou comandos futuros irrestritos.
+- A autorização é validada no backend; a interface não é a fronteira de segurança.
+- A saída de comandos é dado não confiável e deve ser exibida como texto, nunca interpretada como HTML.
+
+## 9. Honestidade operacional
 
 Sempre distinguir:
 - **Feito e verificado**
