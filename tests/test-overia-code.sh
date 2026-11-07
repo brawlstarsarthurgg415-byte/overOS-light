@@ -3,10 +3,9 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALLER="$ROOT/instalar-overia-code-v1_6.sh"
-MARKER="#__OVERIA_PY_INICIO__"
 
-# O instalador é um arquivo híbrido: só o cabeçalho é Bash.
-sed "/^${MARKER}$/,$d" "$INSTALLER" | bash -n
+# O instalador é híbrido: valida somente o cabeçalho como Bash.
+awk '$0 == "#__OVERIA_PY_INICIO__" { exit } { print }' "$INSTALLER" | bash -n
 
 python3 - "$INSTALLER" <<'PY'
 import pathlib, sys
