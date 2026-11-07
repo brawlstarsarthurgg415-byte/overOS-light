@@ -71,3 +71,34 @@ def readable_text(meta: dict, data: bytes, limit: int=120_000) -> str | None:
     if ext not in TEXT_EXTENSIONS: return None
     try: return data[:limit].decode("utf-8")
     except UnicodeDecodeError: return "[Arquivo de texto não UTF-8; anexado, mas não foi extraído para a conversa.]"
+
+def list_project_files(root: Path, max_items: int=500) -> list[dict]:
+    base=root.resolve()
+    result=[]
+    for path in base.rglob("*"):
+        if len(result)>=max_items: break
+        try:
+            if any(part.startswith(".") for part in path.relative_to(base).parts): continue
+            if path.is_symlink() or not path.is_file(): continue
+            stat=path.stat()
+            result.append({
+                "path":path.relative_to(base).as_posix(),
+                "name":path.name,
+                "size":stat.st_size,
+                "modified_at":stat.st_mtime,
+                "download":"/api/project-files/"+path.relative_to(base).as_posix()
+            })
+        except OSError:
+            continue
+    return sorted(result,key=lambda x:x["path"].casefold())
+
+def get_project_file(root: Path, relative: str):
+    base=root.resolve()
+    candidate=(base/str(relative)).resolve()
+    if candidate==base or base not in candidate.parents or not candidate.is_file() or candidate.is_symlink():
+        return None
+    try:
+        if candidate.stat().st_size>20*1024*1024: return None
+        return candidate,candidate.read_bytes()
+    except OSError:
+        return None
