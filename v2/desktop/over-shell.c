@@ -122,6 +122,7 @@ static void draw(void) {
     text(xx+62,yy+42,subs[i],1,muted);
     text(xx+16,yy+78,i==selected?"SELECTED":"OPEN WITH ENTER",1,i==selected?blue:muted);
   }
+  if(page==3) text(x,H-88,"P  CONNECT MEU OVEROS",1,rgb(75,213,226));
   int dockw=260; if(dockw>W-40)dockw=W-40;
   roundrect((W-dockw)/2,H-58,dockw,42,14,panel);
   text((W-dockw)/2+18,H-43,"1 HOME   2 APPS   3 FILES   4 SETTINGS",1,white);
@@ -223,6 +224,14 @@ int main(int argc,char **argv) {
     struct pollfd p={STDIN_FILENO,POLLIN,0}; if(poll(&p,1,250)>0&&p.revents&POLLIN){
       unsigned char c; if(read(STDIN_FILENO,&c,1)==1){
         if(c=='q'||c=='Q'||c==27)break;
+        if((c=='p'||c=='P')&&page==3) {
+          if(tty>=0)ioctl(tty,KDSETMODE,KD_TEXT);
+          tcsetattr(STDIN_FILENO,TCSAFLUSH,&oldt);
+          (void)system("/usr/bin/overosctl pair");
+          struct termios raw=oldt;raw.c_lflag&=~(ICANON|ECHO);raw.c_cc[VMIN]=0;raw.c_cc[VTIME]=1;
+          tcsetattr(STDIN_FILENO,TCSAFLUSH,&raw);
+          if(tty>=0)ioctl(tty,KDSETMODE,KD_GRAPHICS);
+        }
         if(c>='1'&&c<='5'){page=c-'1';selected=0;}
         if(c==' '||c=='\r'||c=='\n') { if(page==0)page=1; }
         if(c=='\t'||c=='j'||c=='J'||c==']')selected=(selected+1)%4;
