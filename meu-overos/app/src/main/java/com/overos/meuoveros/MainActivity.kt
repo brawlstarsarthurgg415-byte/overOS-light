@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
                             qrValue = qrValue, code = code, onCode = { code = it },
                             onScan = {
                                 val options = ScanOptions().setPrompt("Aponte para o QR do OverOS")
-                                    .setBeep(false).setOrientationLocked(false)
+                                    .setBeepEnabled(false).setOrientationLocked(false)
                                 scanner.launch(options)
                             },
                             onBack = { screen = "home" },
@@ -121,7 +121,7 @@ private fun HomeScreen(
 
 @Composable
 private fun FeatureCard(title: String, subtitle: String, modifier: Modifier, symbol: String, onClick: () -> Unit = {}) {
-    Card(modifier, onClick = onClick, colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
+    Card(onClick = onClick, modifier = modifier, colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(symbol, color = Blue, fontSize = 25.sp)
             Text(title, color = Color.White, fontWeight = FontWeight.Bold)
