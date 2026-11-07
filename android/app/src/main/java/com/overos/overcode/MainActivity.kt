@@ -248,6 +248,106 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun startVoiceListening(onResult: (String) -> Unit, onError: (String) -> Unit) {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            onError("Reconhecimento de voz indisponível neste dispositivo.")
+            return
+        }
+        speechRecognizer?.destroy()
+        val recognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        speechRecognizer = recognizer
+        recognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {}
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {}
+            override fun onError(error: Int) {
+                val message = when (error) {
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Permissão de microfone necessária."
+                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Falha de rede no reconhecimento de voz."
+                    SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Não entendi; tente falar novamente."
+                    else -> "Erro no reconhecimento de voz ($error)."
+                }
+                onError(message)
+            }
+            override fun onResults(results: Bundle?) {
+                val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()?.trim().orEmpty()
+                if (spoken.isNotBlank()) onResult(spoken) else onError("Não consegui reconhecer a fala.")
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "pt-BR")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        recognizer.startListening(intent)
+    }
+
+    private fun stopVoice() {
+        speechRecognizer?.cancel()
+        speechRecognizer?.destroy()
+        speechRecognizer = null
+        textToSpeech?.stop()
+    }
+
+    private fun speakVoice(text: String, onDone: () -> Unit) {
+        val tts = textToSpeech
+        if (tts == null) {
+            onDone()
+            return
+        }
+        val utteranceId = UUID.randomUUID().toString()
+        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(id: String?) {}
+            override fun onDone(id: String?) { runOnUiThread { onDone() } }
+            override fun onError(id: String?) { runOnUiThread { onDone() } }
+            override fun onError(id: String?, errorCode: Int) { runOnUiThread { onDone() } }
+        })
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+    }
+
+    private fun uploadFile(base: String, token: String, uri: Uri): UploadedFile {
+        val resolver = contentResolver
+        val displayName = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        } ?: (uri.lastPathSegment ?: "arquivo")
+        val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: throw IllegalStateException("Não foi possível abrir o arquivo.")
+        if (bytes.isEmpty()) throw IllegalStateException("O arquivo está vazio.")
+        if (bytes.size > 8 * 1024 * 1024) throw IllegalStateException("Cada arquivo pode ter no máximo 8 MB.")
+        val mime = resolver.getType(uri) ?: "application/octet-stream"
+        val payload = JSONObject()
+            .put("name", displayName)
+            .put("content_type", mime)
+            .put("content_base64", Base64.encodeToString(bytes, Base64.NO_WRAP))
+        val conn = authorizedConnection(base.trimEnd('/') + "/api/files", token, "POST")
+        try {
+            conn.readTimeout = 30000
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.doOutput = true
+            conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+            val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
+            val body = stream.bufferedReader().use { it.readText() }
+            if (conn.responseCode !in 200..299) throw IllegalStateException(
+                JSONObject(body).optString("error", "HTTP ${conn.responseCode}"))
+            val response = JSONObject(body)
+            return UploadedFile(response.getString("id"), response.optString("name", displayName))
+        } finally { conn.disconnect() }
+    }
+
+    override fun onDestroy() {
+        stopVoice()
+        textToSpeech?.shutdown()
+        textToSpeech = null
+        super.onDestroy()
+    }
+
     private fun authorizedConnection(url: String, token: String, method: String): HttpURLConnection {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.requestMethod = method
