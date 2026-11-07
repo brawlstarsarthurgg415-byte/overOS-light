@@ -109,86 +109,159 @@ private fun HomeScreen(
     paired: Boolean, overfixEnabled: Boolean, onPair: () -> Unit,
     onFiles: () -> Unit, onMusic: () -> Unit, onMonitor: () -> Unit, onCommands: () -> Unit
 ) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-            Box(
-                Modifier.size(42.dp).background(Brush.linearGradient(listOf(Accent, Accent2)), RoundedCornerShape(14.dp)),
-                contentAlignment = Alignment.Center
-            ) { Text("O", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black) }
-            Column(Modifier.weight(1f)) {
-                Text("OVEROS", color = TextMain, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
-                Text("CENTRAL DE CONTROLE", color = TextMuted, fontSize = 9.sp, letterSpacing = 1.6.sp)
-            }
-            Box(Modifier.size(9.dp).background(if (paired) Green else Color(0xFFFFB45B), CircleShape))
-            Text(if (paired) "ONLINE" else "OFFLINE", color = if (paired) Green else Color(0xFFFFB45B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Tudo no seu", color = TextMuted, fontSize = 16.sp)
-            Text("Meu OverOS.", color = TextMain, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp)
-            Text("Seu computador, conectado ao seu celular.", color = TextMuted, fontSize = 14.sp)
-        }
-
-        Box(
-            Modifier.fillMaxWidth().background(
-                Brush.linearGradient(listOf(Color(0xFF183C70), Color(0xFF25265C), Color(0xFF171D39))),
-                RoundedCornerShape(26.dp)
-            ).padding(20.dp)
+    var tab by remember { mutableStateOf("Início") }
+    val tabs = listOf("Início", "Recursos", "Atividade", "Ajustes")
+    Column(Modifier.fillMaxSize().background(Background)) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("SEU COMPUTADOR", color = Color(0xFFB9D5FF), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
-                        Spacer(Modifier.height(6.dp))
-                        Text(if (paired) "OverOS conectado" else "Nenhum dispositivo", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                        Text(if (paired) "Conexão ativa" else "Faça o pareamento para começar", color = Color(0xFFC0CBE0), fontSize = 12.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(44.dp).background(Brush.linearGradient(listOf(Accent, Accent2)), RoundedCornerShape(15.dp)),
+                    contentAlignment = Alignment.Center
+                ) { Text("O", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black) }
+                Spacer(Modifier.width(11.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("MEU OVEROS", color = TextMain, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.5.sp)
+                    Text("CONTROLE DO COMPUTADOR", color = TextMuted, fontSize = 9.sp, letterSpacing = 1.1.sp)
+                }
+                Box(Modifier.size(9.dp).background(if (paired) Green else Color(0xFFFFB45B), CircleShape))
+                Spacer(Modifier.width(6.dp))
+                Text(if (paired) "CONECTADO" else "DESCONECTADO", color = if (paired) Green else Color(0xFFFFB45B), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
+
+            when (tab) {
+                "Início" -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("Seu computador.", color = TextMuted, fontSize = 15.sp)
+                        Text("Tudo conectado.", color = TextMain, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp)
+                        Text("Controle seu OverOS direto do celular.", color = TextMuted, fontSize = 13.sp)
                     }
-                    Box(Modifier.size(58.dp).background(Color.White.copy(alpha = 0.12f), CircleShape), contentAlignment = Alignment.Center) {
-                        Text("⌘", color = Color.White, fontSize = 31.sp)
+                    Box(
+                        Modifier.fillMaxWidth().background(
+                            Brush.linearGradient(listOf(Color(0xFF244F91), Color(0xFF34306F), Color(0xFF171F3B))),
+                            RoundedCornerShape(26.dp)
+                        ).padding(20.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text("MEU COMPUTADOR", color = Color(0xFFC5D9FF), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                                    Text(if (paired) "OverOS online" else "Nenhum PC vinculado", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                                    Text(if (paired) "Dispositivo autenticado" else "Vincule seu computador para começar", color = Color(0xFFD0D9EC), fontSize = 12.sp)
+                                }
+                                Box(Modifier.size(62.dp).background(Color.White.copy(alpha = 0.12f), CircleShape), contentAlignment = Alignment.Center) {
+                                    Text("▣", color = Color.White, fontSize = 34.sp)
+                                }
+                            }
+                            Button(
+                                onClick = onPair, modifier = Modifier.fillMaxWidth().height(52.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF172A4C)),
+                                shape = RoundedCornerShape(16.dp)
+                            ) { Text(if (paired) "Gerenciar dispositivo" else "＋  Vincular computador", fontWeight = FontWeight.Bold) }
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("ACESSO RÁPIDO", color = TextMain, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        Spacer(Modifier.weight(1f))
+                        Text("4 FERRAMENTAS", color = TextMuted, fontSize = 9.sp, letterSpacing = 1.sp)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                        FeatureTile("Monitor", "Desempenho do PC", "◉", Modifier.weight(1f), onMonitor, Color(0xFF65A8FF))
+                        FeatureTile("Arquivos", "Enviar e receber", "⇄", Modifier.weight(1f), onFiles, Color(0xFFAB91FF))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                        FeatureTile("Música", "Áudio sem fio", "♫", Modifier.weight(1f), onMusic, Color(0xFF52D8B0))
+                        FeatureTile("Comandos", "Ações rápidas", "⌘", Modifier.weight(1f), onCommands, Color(0xFFFFC16B))
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(20.dp)).padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(42.dp).background(Color(0xFF30275A), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+                            Text("✦", color = Color(0xFFB5A2FF), fontSize = 24.sp)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("Overfix IA", color = TextMain, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(if (overfixEnabled) "Ativação escolhida; aguardando configuração segura." else "Assistente opcional para diagnóstico e correções.", color = TextMuted, fontSize = 11.sp, lineHeight = 15.sp)
+                        }
+                        Text("›", color = Accent, fontSize = 25.sp)
                     }
                 }
-                Button(
-                    onClick = onPair,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF14264A)),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(if (paired) "Gerenciar conexão" else "＋  Conectar computador", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                "Recursos" -> {
+                    Text("Recursos", color = TextMain, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Ferramentas para usar com seu computador.", color = TextMuted, fontSize = 13.sp)
+                    FeatureTile("Monitor", "CPU, memória, bateria e armazenamento", "◉", Modifier.fillMaxWidth(), onMonitor, Color(0xFF65A8FF))
+                    FeatureTile("Arquivos", "Transferência entre celular e PC", "⇄", Modifier.fillMaxWidth(), onFiles, Color(0xFFAB91FF))
+                    FeatureTile("Música", "Controle de áudio sem fio", "♫", Modifier.fillMaxWidth(), onMusic, Color(0xFF52D8B0))
+                    FeatureTile("Comandos", "Atalhos permitidos e confirmados", "⌘", Modifier.fillMaxWidth(), onCommands, Color(0xFFFFC16B))
+                }
+                "Atividade" -> {
+                    Text("Atividade", color = TextMain, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Alertas e ações recentes do computador.", color = TextMuted, fontSize = 13.sp)
+                    EmptyState("Tudo tranquilo por aqui", "Quando o computador estiver conectado, os eventos e alertas aparecerão nesta área.")
+                }
+                else -> {
+                    Text("Configurações", color = TextMain, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Preferências do Meu OverOS.", color = TextMuted, fontSize = 13.sp)
+                    SettingRow("Overfix IA", if (overfixEnabled) "Ativação selecionada" else "Opcional • após o pareamento", "✦")
+                    SettingRow("Dispositivos", "Gerenciar computadores vinculados", "▣")
+                    SettingRow("Privacidade e segurança", "Credenciais e permissões", "⌑")
+                    Text("A configuração da chave da API e a execução automática de reparos só serão habilitadas com a integração segura do serviço.", color = TextMuted, fontSize = 12.sp, lineHeight = 18.sp)
                 }
             }
+            Text("MEU OVEROS  •  CENTRAL DE CONTROLE", Modifier.fillMaxWidth(), color = Color(0xFF64738D), fontSize = 9.sp, letterSpacing = 1.2.sp)
         }
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("RECURSOS", color = TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-            Spacer(Modifier.weight(1f))
-            Text("DO MEU OVEROS", color = TextMuted, fontSize = 9.sp, letterSpacing = 1.sp)
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            FeatureTile("Monitor", "CPU, memória e bateria", "◉", Modifier.weight(1f), onMonitor, Color(0xFF5B9DFF))
-            FeatureTile("Arquivos", "Envie e receba arquivos", "⇄", Modifier.weight(1f), onFiles, Color(0xFF9B83FF))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            FeatureTile("Música", "Áudio sem fio", "♫", Modifier.weight(1f), onMusic, Color(0xFF45CDA6))
-            FeatureTile("Comandos", "Ações com segurança", "⌘", Modifier.weight(1f), onCommands, Color(0xFFFFB45B))
-        }
-
         Row(
-            Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(18.dp)).padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            Modifier.fillMaxWidth().background(SurfaceDark).padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceAround
         ) {
-            Text("✦", color = Accent2, fontSize = 24.sp)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(if (overfixEnabled) "Overfix IA selecionado" else "Overfix IA é opcional", color = TextMain, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                Text(if (overfixEnabled) "A configuração da chave será feita na etapa de integração." else "A ativação será oferecida após o pareamento.", color = TextMuted, fontSize = 11.sp)
+            tabs.forEach { item ->
+                TextButton(onClick = { tab = item }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            when (item) { "Início" -> "⌂"; "Recursos" -> "▦"; "Atividade" -> "◷"; else -> "⚙" },
+                            color = if (tab == item) Accent else TextMuted, fontSize = 19.sp
+                        )
+                        Text(item, color = if (tab == item) TextMain else TextMuted, fontSize = 9.sp, fontWeight = if (tab == item) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
             }
         }
-        Text("MEU OVEROS  •  VERSÃO 1.1", Modifier.fillMaxWidth(), color = Color(0xFF64738D), fontSize = 9.sp, letterSpacing = 1.4.sp)
-        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun EmptyState(title: String, subtitle: String) {
+    Column(
+        Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(22.dp)).padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Text("◷", color = Accent, fontSize = 36.sp)
+        Text(title, color = TextMain, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(subtitle, color = TextMuted, fontSize = 12.sp, lineHeight = 18.sp)
+    }
+}
+
+@Composable
+private fun SettingRow(title: String, subtitle: String, symbol: String) {
+    Row(
+        Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(18.dp)).padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(40.dp).background(SurfaceRaised, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+            Text(symbol, color = Accent, fontSize = 21.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, color = TextMain, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = TextMuted, fontSize = 11.sp)
+        }
+        Text("›", color = TextMuted, fontSize = 23.sp)
     }
 }
 
