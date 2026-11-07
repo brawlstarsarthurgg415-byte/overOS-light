@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Evoluir o motor existente `overia-code` sem remover nem quebrar o modo terminal. A interface gráfica, o painel web e o cliente Android serão clientes adicionais do mesmo motor.
+Evoluir o motor existente `overia-code` sem remover nem quebrar o modo terminal. Python será o cérebro e a camada de integração, não a linguagem usada para desenhar toda a interface. A interface gráfica, o painel web e o cliente Android serão clientes adicionais do mesmo motor.
 
 ## Estado real encontrado no repositório
 
@@ -52,10 +52,13 @@ O motor continua responsável por modelos, contexto, memória, planejamento, exe
 - Bind em `127.0.0.1` por padrão.
 - Acesso remoto somente com autenticação explícita e transporte protegido.
 
-### Etapa 3 — painel web leve
-- Interface responsiva, sem framework pesado obrigatório.
-- Conversa, seleção de modelo, estado animado, confirmações e configurações.
+### Etapa 3 — painel web leve e bonito
+- Criar a interface com HTML5, CSS3 e TypeScript; Svelte compilado pode organizar os componentes.
+- Criar identidade visual própria da Kelly: tema escuro elegante, acentos luminosos, tipografia legível, ícones SVG e microanimações suaves.
+- Criar conversa em layout moderno, lista de conversas, seletor de modelos, configurações, estados visuais (pensando, pesquisando, executando, aguardando confirmação, concluído e erro).
+- Adaptar o layout para celular e desktop.
 - Terminal e SSH ficam em uma seção avançada; não são removidos.
+- Evitar bibliotecas grandes e efeitos pesados; oferecer modo econômico para o i30.
 
 ### Etapa 4 — voz
 - Web: listar vozes disponíveis no navegador, selecionar idioma/voz e velocidade; reconhecer fala apenas quando o navegador oferecer suporte e pedir permissão.
@@ -64,6 +67,7 @@ O motor continua responsável por modelos, contexto, memória, planejamento, exe
 - Não prometer interceptar o botão físico de energia: isso depende das permissões e das opções de assistente do Android/Samsung.
 
 ### Etapa 5 — cliente Android
+- Aplicativo nativo em Kotlin, com visual coerente com o painel web e controles compactos.
 - Cliente compacto que usa a API autenticada.
 - Integração com o papel de assistente do Android quando disponível; não tentar capturar arbitrariamente o botão Power.
 - Compilar e testar o APK antes de declarar pronto.
@@ -81,3 +85,12 @@ O motor continua responsável por modelos, contexto, memória, planejamento, exe
 ## Limitações conhecidas
 
 Este documento registra a arquitetura e a sequência de trabalho. Ele não significa que API, painel, APK, voz ou integração com o botão físico já estejam implementados ou testados.
+
+## Direção visual inicial
+
+- Tema escuro grafite, superfícies em camadas e acento ciano/violeta discreto.
+- Painel de conversa como foco principal; barra lateral recolhível para conversas e ferramentas.
+- Kelly com indicador animado de atividade em SVG/CSS, sem animações grandes em loop quando ociosa.
+- Botões claros para microfone, enviar, interromper e configurações.
+- SSH, terminal, plugins e conectores em área avançada, acessíveis sem ocupar a tela principal.
+- Respeitar preferência de movimento reduzido e modo econômico de efeitos.
