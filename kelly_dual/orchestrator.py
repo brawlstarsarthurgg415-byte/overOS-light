@@ -320,6 +320,9 @@ def should_delegate_to_code(message: str) -> bool:
         "corrija o código", "corrige o código", "edite os arquivos",
         "instale", "configure o servidor", "analise esse repositório",
         "construa", "desenvolva", "faça um aplicativo", "faz um aplicativo",
-        "faça um site", "faz um site", "execute os testes",
+        "faça um site", "faz um site", "crie um site", "criar um site",
+        "crie uma interface", "criar uma interface", "implemente", "implementar",
+        "corrigir", "corrija", "programar", "edite os arquivos", "execute os testes",
+        "@code", "kelly code",
     )
     return any(cue in text for cue in cues)

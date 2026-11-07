@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+  <title>OverOS Control Center</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="brand" href="#inicio" aria-label="OverOS início">
+        <span class="brand-mark"><span></span><span></span><span></span><span></span></span>
+        <span><b>OverOS</b><small>CONTROL CENTER</small></span>
+      </a>
+      <div class="side-label">SISTEMA</div>
+      <nav>
+        <a class="nav-item active" href="#inicio"><i>⌂</i> Visão geral</a>
+        <a class="nav-item" href="#hardware"><i>▦</i> Hardware</a>
+        <a class="nav-item" href="#servicos"><i>◈</i> Serviços</a>
+        <a class="nav-item" href="#logs"><i>≋</i> Logs e diagnóstico</a>
+        <a class="nav-item" href="#rede"><i>⌁</i> Rede</a>
+        <a class="nav-item" href="#aplicativos"><i>▣</i> Aplicativos</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="secure-note"><span class="secure-dot"></span><div><b>Painel local</b><small>Conexão protegida</small></div></div>
+        <div class="side-version">OverOS Lite V2 <span>prévia</span></div>
+      </div>
+    </aside>
+
+    <main class="main" id="inicio">
+      <header class="topbar">
+        <div><div class="eyebrow">CENTRAL DE CONTROLE</div><h1>Visão geral</h1></div>
+        <div class="top-actions"><span class="connection" id="connection"><i></i> API desconectada</span><button class="avatar" type="button" title="Conta local">O</button></div>
+      </header>
+
+      <section class="welcome glass">
+        <div class="welcome-copy"><div class="eyebrow">BEM-VINDO AO OVEROS</div><h2>Seu sistema.<br><em>Seu controle.</em></h2><p>Monitore o i30, encontre problemas e configure o OverOS em um só lugar.</p><div class="welcome-tags"><span>Kernel Linux</span><span>Userland OverOS</span><span>USB bootável</span></div></div>
+        <div class="orb-scene" aria-hidden="true"><div class="orb-ring ring-one"></div><div class="orb-ring ring-two"></div><div class="orb-core"><span>O</span></div><div class="orb-glint"></div></div>
+        <div class="welcome-footer"><span><i class="pulse"></i> Monitoramento do sistema</span><span id="lastUpdate">Aguardando conexão com a API</span></div>
+      </section>
+
+      <div class="section-heading"><div><div class="eyebrow">MONITORAMENTO</div><h2>Estado do sistema</h2></div><button class="quiet-button" id="refreshButton" type="button">↻ Atualizar agora</button></div>
+      <section class="metrics" id="hardware">
+        <article class="metric glass"><div class="metric-top"><span>Memória RAM</span><span class="metric-icon purple">▤</span></div><strong id="memoryValue">—</strong><div class="meter"><span id="memoryBar"></span></div><small id="memoryDetail">Aguardando dados do sistema</small></article>
+        <article class="metric glass"><div class="metric-top"><span>Processador</span><span class="metric-icon blue">⌘</span></div><strong id="cpuValue">—</strong><div class="meter"><span id="cpuBar"></span></div><small id="cpuDetail">Uso médio</small></article>
+        <article class="metric glass"><div class="metric-top"><span>Armazenamento</span><span class="metric-icon cyan">▱</span></div><strong id="diskValue">—</strong><div class="meter"><span id="diskBar"></span></div><small id="diskDetail">Partição do sistema</small></article>
+        <article class="metric glass"><div class="metric-top"><span>Temperatura</span><span class="metric-icon orange">♨</span></div><strong id="tempValue">—</strong><div class="metric-status" id="tempDetail">Sensor não consultado</div></article>
+      </section>
+
+      <div class="two-column">
+        <section class="panel glass" id="servicos"><div class="panel-heading"><div><div class="eyebrow">EXECUÇÃO</div><h2>Serviços essenciais</h2></div><span class="tiny-pill" id="serviceCount">— serviços</span></div><div class="service-list" id="serviceList"><div class="empty-state">Aguardando a API do OverOS para consultar os serviços.</div></div></section>
+        <section class="panel glass" id="rede"><div class="panel-heading"><div><div class="eyebrow">CONECTIVIDADE</div><h2>Rede</h2></div><span class="status-chip muted" id="networkState">Não verificada</span></div><div class="network-card"><div class="network-symbol">⌁</div><div><b id="networkName">Aguardando informações</b><small id="networkAddress">Endereço IP não disponível</small></div></div><div class="network-foot"><span>Interface ativa</span><b id="networkInterface">—</b></div><div class="network-foot"><span>Gateway</span><b id="networkGateway">—</b></div></section>
+      </div>
+
+      <section class="panel glass logs-panel" id="logs"><div class="panel-heading"><div><div class="eyebrow">DIAGNÓSTICO</div><h2>Atividade recente</h2></div><button class="quiet-button" id="diagnosticButton" type="button" disabled>Coletar diagnóstico</button></div><div class="log-list" id="logList"><div class="empty-state">Os eventos do sistema aparecerão aqui quando a API estiver disponível.</div></div></section>
+
+      <section class="panel glass apps-panel" id="aplicativos"><div class="panel-heading"><div><div class="eyebrow">AMBIENTE</div><h2>Aplicativos do OverOS</h2></div><span class="tiny-pill">Catálogo V2</span></div><div class="app-grid"><div class="app-tile"><span class="app-icon browser">◎</span><b>Navegador</b><small>Compatibilidade web moderna</small><em>Em avaliação</em></div><div class="app-tile"><span class="app-icon files">▰</span><b>Arquivos</b><small>Gerenciador leve</small><em>Planejado</em></div><div class="app-tile"><span class="app-icon terminal">&gt;_</span><b>Terminal</b><small>Ferramentas do sistema</small><em>Planejado</em></div><div class="app-tile"><span class="app-icon settings">⚙</span><b>Configurações</b><small>Personalização e dispositivos</small><em>Planejado</em></div></div></section>
+      <footer><span>OverOS Lite V2 · Painel de administração local</span><span>Feito para funcionar offline na rede local</span></footer>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

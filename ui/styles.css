@@ -26,3 +26,75 @@
 .simple-view{padding-top:12vh}.simple-view>*{max-width:760px;margin-left:auto;margin-right:auto}
 .hidden{display:none!important}
 @media(max-width:850px){.settings-grid{grid-template-columns:1fr}.settings-view{height:calc(100vh - 60px);padding:24px 16px}.settings-card{padding:19px}}
+
+
+/* OverCode 2.7 · anexos, voz e ferramentas */
+.attachment-list{display:flex;flex-wrap:wrap;gap:7px;padding:0 12px}
+.attachment-chip{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:5px 9px;border:1px solid #394353;border-radius:8px;background:#1d2430;color:#dce5ed;font-size:10px}
+.attachment-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.attachment-chip button{border:0;background:transparent;color:#aeb8c7;font-size:16px;padding:0 2px}
+.voice-select{max-width:128px;min-width:0;border:1px solid #333b49;border-radius:7px;background:#1b202b;color:#aeb8c7;padding:5px;font-size:10px}
+.voice-status{font-size:10px;color:var(--cyan);white-space:nowrap}
+.live-button{font-size:10px!important;padding:0 9px!important}
+.live-button.active{border-color:#b66d78!important;color:#ffb5bd!important;background:#3a2029!important}
+.simple-content{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:24px;align-items:start}
+.capability-card{background:#171c26;border:1px solid #2b3341;border-radius:12px;padding:17px;min-width:0}
+.capability-card h3{font-size:13px;margin:0 0 8px;color:#eef0f6}
+.capability-card p{font-size:11px;line-height:1.6;color:#9ca6b7;margin:0 0 13px;overflow-wrap:anywhere}
+.capability-tag{display:inline-block;border:1px solid #3a4656;border-radius:20px;padding:4px 8px;font-size:9px;color:#8edbd1}
+.simple-empty{color:var(--muted);font-size:12px;line-height:1.7;grid-column:1/-1}
+.file-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#171c26;border:1px solid #2b3341;border-radius:10px;padding:13px;grid-column:1/-1}
+.file-info{min-width:0;display:flex;flex-direction:column;gap:5px}
+.file-info strong{font-size:12px;overflow-wrap:anywhere}
+.file-info small{font-size:10px;color:var(--muted)}
+.file-actions{display:flex;gap:7px;flex-shrink:0}
+.file-actions button{font-size:10px;padding:7px 10px}
+.tool-list{display:flex;flex-wrap:wrap;gap:7px;grid-column:1/-1}
+.tool-list code{font-size:10px;background:#0e1219;border:1px solid #2c3442;color:#a7d8d1;padding:6px 8px;border-radius:6px}
+.api-example{grid-column:1/-1;white-space:pre-wrap;overflow-wrap:anywhere;background:#0d1118;border:1px solid #2a3240;border-radius:10px;padding:15px;color:#b9c7d7;font:11px/1.8 ui-monospace,monospace}
+@media(max-width:760px){.voice-select{max-width:92px}.voice-status{display:none}.file-row{align-items:flex-start;flex-direction:column}.file-actions{width:100%}.file-actions button{flex:1}}
+
+
+/* OverCode 2.7.1 · acabamento visual e estados dos módulos */
+:root{--cyan:#83d8d1;--violet:#a99af4;--panel-glass:#171b25}
+body{background:radial-gradient(ellipse at 54% -20%,#242a3b 0,transparent 48%),var(--bg);font-family:Inter,'DM Sans',system-ui,sans-serif}
+.sidebar{background:linear-gradient(180deg,#151923 0%,#11141b 100%);box-shadow:12px 0 38px #00000018}
+.brand-mark{box-shadow:0 7px 24px #72e1dc35}
+.nav-item{transition:background .18s ease,color .18s ease,transform .18s ease}
+.nav-item:hover{transform:translateX(2px)}
+.nav-item.active{box-shadow:inset 2px 0 0 var(--cyan),0 5px 18px #0002}
+.new-chat{transition:border-color .18s ease,background .18s ease}
+.new-chat:hover{border-color:#668d91;background:#252d39}
+.topbar{background:#11141bdc;backdrop-filter:blur(16px);position:sticky;top:0;z-index:5}
+.connection{padding:6px 9px;border:1px solid #3c3a31;border-radius:30px;background:#211f1a}
+.connection.connected{border-color:#315342;background:#17251f;color:#9ce0bd}
+.connection i{background:var(--amber)}
+.connection.connected i{background:var(--green);box-shadow:0 0 9px #77d6a477}
+.model-select{transition:border-color .18s ease,background .18s ease}
+.model-select:hover{border-color:#667f8b;background:#28303c}
+.kelly-orb{filter:drop-shadow(0 12px 30px #68d9d933)}
+.orb-core{animation:kelly-breathe 4s ease-in-out infinite}
+@keyframes kelly-breathe{0%,100%{transform:scale(1);filter:saturate(1)}50%{transform:scale(1.07);filter:saturate(1.25)}}
+.suggestion{transition:transform .18s ease,border-color .18s ease,background .18s ease}
+.suggestion:hover{transform:translateY(-2px);border-color:#668e91;box-shadow:0 10px 26px #0002}
+.composer{background:linear-gradient(145deg,#1b202b,#171b24);border-color:#3b4554;box-shadow:0 18px 50px #0004}
+.composer:focus-within{border-color:#78c8c5;box-shadow:0 0 0 3px #78c8c51c,0 18px 50px #0004}
+.send-btn{box-shadow:0 5px 16px #69d9dc35;transition:transform .15s ease,filter .15s ease}
+.send-btn:hover{transform:translateY(-1px);filter:brightness(1.08)}
+.activity-panel{background:linear-gradient(180deg,#151923,#12151c)}
+.task-summary,.settings-card,.capability-card{box-shadow:0 12px 34px #00000020}
+.live-pill{background:#17251f}
+.voice-select{max-width:190px;min-width:125px;cursor:pointer}
+.voice-select:focus{outline:2px solid #83d8d155;outline-offset:2px}
+.voice-status{max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.settings-card,.capability-card,.file-row{transition:border-color .18s ease,transform .18s ease}
+.settings-card:hover,.capability-card:hover{border-color:#3b4a5b}
+@media(max-width:760px){
+  .topbar{padding:0 14px}
+  .top-actions{gap:8px}
+  .connection{font-size:9px;padding:5px 7px}
+  .voice-select{max-width:145px;min-width:100px}
+  .composer-tools{gap:6px;flex-wrap:wrap}
+  .composer-hint{display:none}
+}
+@media(prefers-reduced-motion:reduce){.orb-core{animation:none}}

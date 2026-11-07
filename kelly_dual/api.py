@@ -15,13 +15,15 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import quote, unquote, urlparse
 from typing import Callable
 
-from .orchestrator import TaskCoordinator, Task, TaskEvent
+from .orchestrator import TaskCoordinator, Task, TaskEvent, should_delegate_to_code
 from . import providers
+from .file_store import delete_upload, get_project_file, get_upload, list_project_files, list_uploads, readable_text, save_upload
+from .sessions import SessionStore, run_slash_command
 
-MAX_BODY = 64 * 1024
+MAX_BODY = 12 * 1024 * 1024
 MAX_PROMPT = 20_000
 
 
@@ -55,6 +57,8 @@ def safe_project_dir(raw: object, root: Path) -> str | None:
 
 
 def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
+    sessions = SessionStore()
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "KellyLocalAPI/1.0"
 
@@ -82,7 +86,7 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
         def _body(self) -> dict:
             length = int(self.headers.get("Content-Length", "0"))
             if length < 1 or length > MAX_BODY:
-                raise ValueError("Corpo ausente ou maior que 64 KB.")
+                raise ValueError("Corpo ausente ou maior que 12 MB.")
             value = json.loads(self.rfile.read(length))
             if not isinstance(value, dict):
                 raise ValueError("O corpo precisa ser um objeto JSON.")
@@ -95,6 +99,7 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                 "/index.html": "index.html",
                 "/styles.css": "styles.css",
                 "/app.js": "app.js",
+                "/settings.js": "settings.js",
             }
             if path in static_files:
                 ui_root = (Path(__file__).resolve().parent.parent / "ui").resolve()
@@ -124,6 +129,64 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                 return
             if not self._authorized():
                 return
+            if path == "/api/project-files":
+                self._json(200, {"files": list_project_files(root)})
+                return
+            if path.startswith("/api/project-files/"):
+                relative = unquote(path[len("/api/project-files/"):])
+                found = get_project_file(root, relative)
+                if not found:
+                    self._json(404, {"error": "Arquivo de projeto não encontrado ou excede o limite de download."})
+                    return
+                target, raw = found
+                self.send_response(200)
+                self.send_header("Content-Type", mimetypes.guess_type(str(target))[0] or "application/octet-stream")
+                self.send_header("Content-Length", str(len(raw)))
+                self.send_header("Content-Disposition", "attachment; filename*=UTF-8''" + quote(target.name))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(raw)
+                return
+            if path == "/api/files":
+                self._json(200, {"files": list_uploads(root)})
+                return
+            if path.startswith("/api/files/"):
+                file_id = path[len("/api/files/"):].strip("/")
+                found = get_upload(root, file_id)
+                if not found:
+                    self._json(404, {"error": "Arquivo não encontrado."})
+                    return
+                meta, target, raw = found
+                self.send_response(200)
+                self.send_header("Content-Type", meta.get("content_type", "application/octet-stream"))
+                self.send_header("Content-Length", str(len(raw)))
+                self.send_header("Content-Disposition", "attachment; filename*=UTF-8''" + quote(meta.get("name", "arquivo")))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(raw)
+                return
+            if path == "/api/capabilities":
+                cfg = providers.public_config()
+                self._json(200, {
+                    "api": "online",
+                    "chat": True,
+                    "voice": {"browser_speech_recognition": "browser-dependent", "browser_speech_synthesis": "browser-dependent", "realtime_streaming": False},
+                    "files": {"upload": True, "download": True, "max_bytes": 8 * 1024 * 1024},
+                    "provider": {"name": cfg.get("provider"), "model": cfg.get("model"), "configured": cfg.get("has_api_key", False)},
+                    "executor_configured": bool(os.environ.get("KELLY_EXECUTOR")),
+                    "tools": ["chat", "task_queue", "task_events", "session_history", "file_upload", "file_download", "project_file_list", "project_file_download", "provider_settings", "health_status"]
+                })
+                return
+            if path == "/api/sessions":
+                self._json(200, {"sessions": sessions.list()})
+                return
+            if path.startswith("/api/sessions/"):
+                session_id = path[len("/api/sessions/"):].strip("/")
+                try:
+                    self._json(200, {"id": session_id, "messages": sessions.get(session_id)})
+                except ValueError as exc:
+                    self._json(404, {"error": str(exc)})
+                return
             if path == "/api/providers":
                 self._json(200, providers.public_config())
                 return
@@ -151,6 +214,13 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
             path = urlparse(self.path).path
             try:
                 body = self._body()
+                if path == "/api/files":
+                    name = str(body.get("name", ""))
+                    encoded = str(body.get("content_base64", ""))
+                    content_type = str(body.get("content_type", ""))[:160]
+                    meta = save_upload(root, name, encoded, content_type)
+                    self._json(201, meta)
+                    return
                 if path == "/api/providers":
                     self._json(200, providers.save_config(body))
                     return
@@ -161,6 +231,28 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                     message = str(body.get("message", "")).strip()
                     if not message or len(message) > MAX_PROMPT:
                         raise ValueError("Informe uma mensagem de 1 a 20.000 caracteres.")
+                    attachment_ids = body.get("attachments", [])
+                    if not isinstance(attachment_ids, list) or len(attachment_ids) > 10:
+                        raise ValueError("Envie no máximo 10 anexos por mensagem.")
+                    attachment_context = []
+                    attachment_names = []
+                    for file_id in attachment_ids:
+                        found = get_upload(root, str(file_id))
+                        if not found:
+                            raise ValueError("Um dos anexos não existe mais.")
+                        meta, _, raw_file = found
+                        attachment_names.append(meta.get("name", "arquivo"))
+                        extracted = readable_text(meta, raw_file, limit=30000)
+                        if extracted is not None:
+                            attachment_context.append(
+                                f"\n[CONTEÚDO DO ANEXO: {meta.get('name','arquivo')}]\n{extracted}\n[FIM DO ANEXO]"
+                            )
+                    if attachment_names:
+                        message += "\n\nArquivos anexados: " + ", ".join(attachment_names)
+                    if attachment_context:
+                        message += "\n" + "\n".join(attachment_context)
+                    elif attachment_names:
+                        message += "\n[Os anexos binários foram armazenados, mas este provedor ainda não possui leitura multimodal habilitada.]"
                     history = body.get("history", [])
                     if not isinstance(history, list) or len(history) > 30:
                         raise ValueError("O histórico precisa ser uma lista com até 30 mensagens.")
@@ -171,8 +263,53 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                         content = str(item.get("content", ""))[:MAX_PROMPT]
                         if content:
                             safe_history.append({"role": item["role"], "content": content})
-                    answer = providers.complete(message, "Você é Kelly, assistente do OverCode. Responda em português brasileiro, seja clara e útil. Para alterações de código, oriente o usuário a delegar uma tarefa à Kelly Code.", safe_history)
-                    self._json(200, {"answer": answer})
+                    session_id = str(body.get("session_id", "")).strip()
+                    if not session_id:
+                        session_id = sessions.create()
+                    else:
+                        saved_messages = sessions.get(session_id)
+                        if not safe_history:
+                            safe_history = [
+                                {"role": item["role"], "content": item["content"]}
+                                for item in saved_messages[-30:]
+                                if item["role"] in {"user", "assistant"}
+                            ]
+                    command_answer = run_slash_command(
+                        message, safe_history, root, session_id, sessions,
+                        providers.complete, providers.public_config
+                    )
+                    task_id = None
+                    if command_answer is None and should_delegate_to_code(message):
+                        context = safe_history[-12:]
+                        shared_context = "\\n".join(
+                            f"{item['role']}: {item['content']}" for item in context
+                        )
+                        delegated_prompt = (
+                            "CONTEXTO COMPARTILHADO DA CONVERSA:\\n"
+                            + shared_context + "\\n\\nTAREFA DO USUÁRIO:\\n" + message
+                        )
+                        task = coordinator.submit(delegated_prompt, str(root))
+                        task_id = task.id
+                        answer = (
+                            "Entendi. Já passei essa tarefa para a Kelly Code. "
+                            "Ela continuará trabalhando em segundo plano enquanto conversamos. "
+                            f"Identificador: {task_id[:8]}."
+                        )
+                    elif command_answer is None:
+                        answer = providers.complete(
+                            message,
+                            "Você é Kelly, assistente leve de conversa do OverCode. Responda em português brasileiro. "
+                            "Kelly Code executa tarefas delegadas em segundo plano.",
+                            safe_history
+                        )
+                    else:
+                        answer = command_answer
+                    sessions.append(session_id, "user", message)
+                    sessions.append(session_id, "assistant", answer)
+                    payload = {"answer": answer, "session_id": session_id}
+                    if task_id:
+                        payload.update({"task_id": task_id, "delegated": True})
+                    self._json(200, payload)
                     return
                 if path != "/api/tasks":
                     self._json(404, {"error": "Rota não encontrada."})
@@ -192,6 +329,13 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
             if not self._authorized():
                 return
             path = urlparse(self.path).path
+            if path.startswith("/api/files/"):
+                file_id = path[len("/api/files/"):].strip("/")
+                if delete_upload(root, file_id):
+                    self._json(200, {"deleted": True, "id": file_id})
+                else:
+                    self._json(404, {"error": "Arquivo não encontrado."})
+                return
             if not path.startswith("/api/tasks/"):
                 self._json(404, {"error": "Rota não encontrada."})
                 return
@@ -266,6 +410,8 @@ def main():
         raise SystemExit("Defina KELLY_API_TOKEN com pelo menos 32 caracteres.")
     root = Path(os.environ.get("OVEROS_PROJECT_ROOT", str(Path.cwd()))).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
+    if not os.environ.get("KELLY_EXECUTOR", "").strip():
+        os.environ["KELLY_EXECUTOR"] = "kelly_dual.executor:execute_task"
     try:
         executor = load_executor()
     except RuntimeError as exc:

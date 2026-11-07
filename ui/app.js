@@ -5,7 +5,12 @@
   const welcome = $("welcome"), toast = $("toast");
   let activeTab = "timeline";
   let files = [];
+  let pendingAttachments = [];
+  let liveMode = false;
+  let recognition = null;
+  let awaitingReply = false;
   let chatHistory = [];
+  let chatSessionId = sessionStorage.getItem("overcode-session-id") || "";
   let toastTimer;
   const now = () => new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
   function notify(text){toast.textContent=text;toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),2600)}
@@ -58,16 +63,161 @@
       await followTask(result.id,token);
     }catch(error){eventCard({title:"Não foi possível executar",detail:error.message,kind:"info"});$("taskSubtitle").textContent="API indisponível ou executor não configurado";addMessage("assistant","Não consegui iniciar a tarefa pela API local: "+error.message+". Verifique se a Kelly API está ativa e se o adaptador do motor foi configurado.")}
   }
-  async function chatWithKelly(message){const token=apiToken();if(!token){notify("Configure o token da Kelly API em Configurações.");return}try{const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({message,history:chatHistory})});const d=await r.json();if(!r.ok)throw new Error(d.error||("HTTP "+r.status));const answer=d.answer||"Sem resposta do provedor.";chatHistory.push({role:"user",content:message},{role:"assistant",content:answer});chatHistory=chatHistory.slice(-30);addMessage("assistant",answer)}catch(e){addMessage("assistant","Falha na conversa: "+e.message+". Confira a API Key em Configurações.")}}
-  function send(){const value=prompt.value.trim();if(!value)return;addMessage("user",value);prompt.value="";prompt.style.height="auto";if(/@code|crie|criar|projeto|implemente|program|corrija|corrigir|instale|construa|desenvolva|site|aplicativo|configure|analise o repositório|execute os testes/i.test(value)){submitTask(value)}else{chatWithKelly(value)}}
+  function speakAnswer(text){
+    if(!liveMode || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance=new SpeechSynthesisUtterance(text);
+    utterance.lang="pt-BR";
+    const chosen=$("voiceSelect").value;
+    const voices=window.speechSynthesis.getVoices();
+    utterance.voice=voices.find(v=>v.name===chosen)||voices.find(v=>v.lang.toLowerCase().startsWith("pt"))||null;
+    utterance.onend=()=>{awaitingReply=false;if(liveMode) startRecognition()};
+    utterance.onerror=()=>{awaitingReply=false;if(liveMode) startRecognition()};
+    window.speechSynthesis.speak(utterance);
+  }
+  async function chatWithKelly(message, attachmentIds=[], fromVoice=false){
+    const token=apiToken();if(!token){notify("Configure o token da Kelly API em Configurações.");if(fromVoice){awaitingReply=false;if(liveMode)startRecognition()}return}
+    try{
+      const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({message,attachments:attachmentIds,history:chatHistory,session_id:chatSessionId})});
+      const d=await r.json();if(!r.ok)throw new Error(d.error||("HTTP "+r.status));
+      const answer=d.answer||"Sem resposta do provedor.";
+      if(d.session_id){chatSessionId=d.session_id;sessionStorage.setItem("overcode-session-id",chatSessionId)}
+      chatHistory.push({role:"user",content:message},{role:"assistant",content:answer});chatHistory=chatHistory.slice(-30);
+      addMessage("assistant",answer);
+      if(liveMode || fromVoice) speakAnswer(answer);
+      if(d.task_id){
+        $("taskTitle").textContent="Tarefa "+d.task_id.slice(0,8);
+        $("taskSubtitle").textContent="Kelly Code · trabalhando em segundo plano";
+        timeline.innerHTML="";
+        eventCard({title:"Tarefa enviada para Kelly Code",detail:"A conversa continua enquanto a tarefa é executada.",kind:"success"});
+        followTask(d.task_id,token).catch(e=>eventCard({title:"Falha ao acompanhar tarefa",detail:e.message}));
+      }
+      return answer;
+    }catch(e){if(fromVoice){awaitingReply=false;if(liveMode)startRecognition()}addMessage("assistant","Falha na conversa: "+e.message+". Confira a API Key em Configurações.");return ""}
+  }
+  function renderAttachments(){
+    const area=$("attachmentList");area.innerHTML="";
+    pendingAttachments.forEach((file,index)=>{
+      const chip=document.createElement("span");chip.className="attachment-chip";
+      const name=document.createElement("span");name.textContent=file.name;
+      const remove=document.createElement("button");remove.type="button";remove.textContent="×";remove.setAttribute("aria-label","Remover "+file.name);
+      remove.addEventListener("click",()=>{pendingAttachments.splice(index,1);renderAttachments()});
+      chip.append(name,remove);area.append(chip);
+    });
+  }
+  async function uploadSelected(file){
+    if(file.size>12*1024*1024){notify("Cada arquivo pode ter no máximo 12 MB.");return}
+    const token=apiToken();if(!token)return;
+    const encoded=await new Promise((resolve,reject)=>{
+      const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(",")[1]||"");reader.onerror=()=>reject(new Error("Não consegui ler o arquivo."));reader.readAsDataURL(file);
+    });
+    const response=await fetch("/api/files",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({name:file.name,content_type:file.type,content_base64:encoded})});
+    const data=await response.json();if(!response.ok)throw new Error(data.error||("HTTP "+response.status));
+    pendingAttachments.push(data);renderAttachments();notify("Arquivo anexado: "+data.name);
+  }
+  $("attachButton").addEventListener("click",()=>$("fileInput").click());
+  $("fileInput").addEventListener("change",async e=>{
+    for(const file of Array.from(e.target.files||[])){
+      try{await uploadSelected(file)}catch(error){notify("Falha no anexo: "+error.message)}
+    }
+    e.target.value="";
+  });
+  function populateVoices(){
+    if(!("speechSynthesis" in window))return;
+    const select=$("voiceSelect"),previous=select.value;
+    const saved=localStorage.getItem("overcode-voice")||previous;
+    const voices=window.speechSynthesis.getVoices().slice().sort((a,b)=>{
+      const ap=a.lang.toLowerCase().startsWith("pt")?0:1,bp=b.lang.toLowerCase().startsWith("pt")?0:1;
+      return ap-bp||a.lang.localeCompare(b.lang)||a.name.localeCompare(b.name);
+    });
+    select.innerHTML='<option value="">Voz automática (português)</option>';
+    voices.forEach(v=>{const option=document.createElement("option");option.value=v.name;option.textContent=v.name+" · "+v.lang;select.append(option)});
+    if(voices.some(v=>v.name===saved))select.value=saved;
+    select.title=voices.length?"Escolha uma voz instalada no dispositivo":"Nenhuma voz carregada pelo navegador";
+  }
+  function startRecognition(){
+    if(!liveMode || !recognition)return;
+    try{recognition.start();$("voiceStatus").textContent="Ouvindo…"}catch(_){}
+  }
+  function stopLive(){
+    liveMode=false;
+    awaitingReply=false;
+    if(recognition){try{recognition.onend=null;recognition.stop()}catch(_){}recognition=null}
+    if("speechSynthesis" in window)window.speechSynthesis.cancel();
+    $("voiceButton").classList.remove("active");
+    $("voiceButton").textContent="◉ Live";
+    $("voiceButton").title="Iniciar modo Live";
+    $("voiceStatus").textContent="Modo Live desligado";
+  }
+  function toggleLive(){
+    if(liveMode){stopLive();return}
+    const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SpeechRecognition){notify("Reconhecimento de voz não disponível neste navegador. Tente o Chrome atualizado.");return}
+    if(!("speechSynthesis" in window)){notify("Este navegador não oferece síntese de voz.");return}
+    recognition=new SpeechRecognition();
+    recognition.lang="pt-BR";recognition.continuous=true;recognition.interimResults=false;
+    recognition.onresult=async event=>{
+      const result=event.results[event.results.length-1];
+      const transcript=result&&result[0]?result[0].transcript.trim():"";
+      if(!transcript)return;
+      awaitingReply=true;
+      try{recognition.stop()}catch(_){}
+      addMessage("user",transcript);
+      await chatWithKelly(transcript,[],true);
+    };
+    recognition.onerror=event=>{
+      if(event.error==="not-allowed"||event.error==="service-not-allowed"){notify("Permita o acesso ao microfone nas configurações do navegador.");stopLive()}
+      else $("voiceStatus").textContent="Voz: "+event.error;
+    };
+    recognition.onend=()=>{if(liveMode && !awaitingReply && !window.speechSynthesis.speaking)setTimeout(startRecognition,350)};
+    liveMode=true;
+    $("voiceButton").classList.add("active");
+    $("voiceButton").textContent="■ Parar Live";
+    $("voiceButton").title="Parar modo Live";
+    populateVoices();startRecognition();
+  }
+  $("voiceButton").addEventListener("click",toggleLive);
+  $("voiceSelect").addEventListener("change",e=>{
+    localStorage.setItem("overcode-voice",e.target.value);
+    const selected=e.target.selectedOptions[0];
+    $("voiceStatus").textContent=e.target.value?"Voz: "+selected.textContent:"Voz automática";
+    if(liveMode && window.speechSynthesis.speaking)window.speechSynthesis.cancel();
+  });
+  if("speechSynthesis" in window){populateVoices();window.speechSynthesis.onvoiceschanged=populateVoices;}
+  function send(){
+    const value=prompt.value.trim();if(!value && !pendingAttachments.length)return;
+    const attachmentIds=pendingAttachments.map(x=>x.id);
+    const suffix=pendingAttachments.length?" · Anexos: "+pendingAttachments.map(x=>x.name).join(", "):"";
+    const message=value||"Analise os arquivos anexados.";
+    addMessage("user",message+suffix);
+    prompt.value="";prompt.style.height="auto";
+    pendingAttachments=[];renderAttachments();
+    chatWithKelly(message,attachmentIds);
+  }
   $("sendButton").addEventListener("click",send);
   prompt.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
   prompt.addEventListener("input",()=>{prompt.style.height="auto";prompt.style.height=Math.min(prompt.scrollHeight,130)+"px"});
   document.querySelectorAll(".suggestion").forEach(b=>b.addEventListener("click",()=>{prompt.value=b.dataset.prompt;send()}));
-  $("newChat").addEventListener("click",()=>{messages.innerHTML="";chatHistory=[];timeline.innerHTML='<div class="empty-activity"><div class="empty-icon">⌁</div><strong>Seu trabalho, sem caixa-preta.</strong><p>Planos, comandos, saídas e testes aparecerão aqui em tempo real.</p></div>';$("taskTitle").textContent="Nenhuma tarefa ativa";$("taskSubtitle").textContent="Quando a Code trabalhar, você verá tudo aqui.";welcome.classList.remove("hidden");notify("Nova conversa iniciada")});
+  $("newChat").addEventListener("click",()=>{messages.innerHTML="";chatHistory=[];chatSessionId="";sessionStorage.removeItem("overcode-session-id");timeline.innerHTML='<div class="empty-activity"><div class="empty-icon">⌁</div><strong>Seu trabalho, sem caixa-preta.</strong><p>Planos, comandos, saídas e testes aparecerão aqui em tempo real.</p></div>';$("taskTitle").textContent="Nenhuma tarefa ativa";$("taskSubtitle").textContent="Quando a Code trabalhar, você verá tudo aqui.";welcome.classList.remove("hidden");notify("Nova conversa iniciada")});
   $("safeAutoApprove").addEventListener("change",e=>notify(e.target.checked?"Aprovação automática de ações seguras ativada (prévia).":"Aprovação automática desativada."));
   document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");activeTab=b.dataset.tab;$("timeline").classList.toggle("hidden",activeTab!=="timeline");$("filesView").classList.toggle("hidden",activeTab!=="files")}));
   $("openSidebar").addEventListener("click",()=>$("sidebar").classList.add("open"));
   $("closeSidebar").addEventListener("click",()=>$("sidebar").classList.remove("open"));
-  $("voiceButton").addEventListener("click",()=>notify("Microfone e síntese de voz serão conectados ao serviço Kelly Live."));
+  async function refreshConnection(){
+    const el=$("connectionStatus");
+    try{
+      const response=await fetch("/api/health",{cache:"no-store"});
+      if(!response.ok)throw new Error("HTTP "+response.status);
+      const data=await response.json();
+      el.innerHTML="<i></i> API "+(data.ok?"online":"offline")+(data.executor_configured?" · Code ativa":" · chat disponível");
+      el.classList.toggle("connected",!!data.ok);
+      el.title="Última verificação: "+now();
+    }catch(_){
+      el.innerHTML="<i></i> API desconectada";
+      el.classList.remove("connected");
+      el.title="Não foi possível alcançar /api/health";
+    }
+  }
+  refreshConnection();
+  setInterval(refreshConnection,15000);
 })();
