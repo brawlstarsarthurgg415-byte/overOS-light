@@ -28,6 +28,6 @@ A OverOS não vai fingir que construiu um motor web completo do zero nesta etapa
 - Não armazenar senhas em texto puro; integração futura com armazenamento seguro do sistema.
 - Testar em hardware i686/x86_64 conforme arquitetura real do i30 antes de definir o pacote.
 
-## Estado
+## Estado atual
 
-Esta entrega cria a especificação do aplicativo. A interface nativa e o motor web ainda não estão integrados à imagem.
+A interface original inicial foi criada em HTML/CSS/JavaScript puros: página inicial, barra de abas, controles, endereço/pesquisa, favoritos locais, histórico local e alternância de modo privado na sessão. A prévia ainda não renderiza páginas: o motor web nativo e sua ponte não foram conectados. O build atual empacota esses arquivos como recursos da V2, mas ainda não os abre numa janela gráfica.
