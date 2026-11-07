@@ -43,5 +43,15 @@ class ProviderConfigTests(unittest.TestCase):
                     })
 
 
+    def test_switching_provider_does_not_reuse_previous_secret(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "providers.json"
+            with patch.object(providers, "CONFIG", path):
+                providers.save_config({"provider":"openai-compatible","model":"gpt-4o-mini","base_url":"https://api.openai.com/v1","api_key":"openai-secret"})
+                result = providers.save_config({"provider":"gemini","model":"gemini-2.5-flash"})
+                self.assertFalse(result["has_api_key"])
+                self.assertEqual(json.loads(path.read_text())["api_key"], "")
+
+
 if __name__ == "__main__":
     unittest.main()
