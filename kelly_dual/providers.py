@@ -92,7 +92,7 @@ def complete(message: str, system: str = "") -> str:
         raise RuntimeError("Configure o provedor, modelo e API key em Configurações.")
     if provider == "gemini":
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-        parts = ([{"text": system + "\\n\\n"}] if system else []) + [{"text": message}]
+        parts = ([{"text": system + "\n\n"}] if system else []) + [{"text": message}]
         data = _request(url, {"contents": [{"role": "user", "parts": parts}]}, {"x-goog-api-key": key})
         try:
             return data["candidates"][0]["content"]["parts"][0]["text"]
