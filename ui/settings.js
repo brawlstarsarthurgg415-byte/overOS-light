@@ -25,31 +25,45 @@
     if(!r.ok) throw new Error(data.error||("HTTP "+r.status));
     return data;
   }
-  async function downloadFile(file){
-    const r=await fetch("/api/files/"+encodeURIComponent(file.id),{headers:{Authorization:"Bearer "+token()}});
+  async function downloadFile(file,endpoint){
+    const r=await fetch(endpoint,{headers:{Authorization:"Bearer "+token()}});
     if(!r.ok)throw new Error("Falha ao baixar arquivo (HTTP "+r.status+").");
     const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");
-    a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
+    a.href=url;a.download=file.name;a.style.display="none";document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
   }
   async function loadFiles(){
     empty("Carregando arquivos…");
     try{
-      const data=await authorized("/api/files");content.innerHTML="";
-      if(!data.files.length){empty("Nenhum arquivo enviado ainda. Use o botão + ao lado da caixa de mensagem para anexar documentos.");return}
-      data.files.forEach(file=>{
+      const [uploaded,project]=await Promise.all([authorized("/api/files"),authorized("/api/project-files")]);
+      content.innerHTML="";
+      const addHeading=label=>{const h=document.createElement("h3");h.textContent=label;h.style.gridColumn="1/-1";content.append(h)};
+      const addRow=(file,endpoint,subtitle,canDelete)=>{
         const row=document.createElement("div");row.className="file-row";
         const info=document.createElement("div");info.className="file-info";
         const name=document.createElement("strong");name.textContent=file.name;
-        const meta=document.createElement("small");meta.textContent=(file.size/1024).toFixed(1)+" KB · "+file.content_type;
+        const meta=document.createElement("small");meta.textContent=(file.size/1024).toFixed(1)+" KB · "+subtitle;
         info.append(name,meta);
         const actions=document.createElement("div");actions.className="file-actions";
-        const dl=document.createElement("button");dl.className="secondary-btn";dl.textContent="Baixar";dl.addEventListener("click",()=>downloadFile(file).catch(e=>notify(e.message)));
-        const del=document.createElement("button");del.className="secondary-btn";del.textContent="Excluir";del.addEventListener("click",async()=>{
-          if(!confirm("Excluir "+file.name+"?"))return;
-          try{await authorized("/api/files/"+encodeURIComponent(file.id),{method:"DELETE"});loadFiles()}catch(e){notify(e.message)}
-        });
-        actions.append(dl,del);row.append(info,actions);content.append(row);
+        const dl=document.createElement("button");dl.className="secondary-btn";dl.textContent="Baixar";dl.addEventListener("click",()=>downloadFile(file,endpoint).catch(e=>notify(e.message)));
+        actions.append(dl);
+        if(canDelete){
+          const del=document.createElement("button");del.className="secondary-btn";del.textContent="Excluir";del.addEventListener("click",async()=>{
+            if(!confirm("Excluir "+file.name+"?"))return;
+            try{await authorized("/api/files/"+encodeURIComponent(file.id),{method:"DELETE"});loadFiles()}catch(e){notify(e.message)}
+          });
+          actions.append(del);
+        }
+        row.append(info,actions);content.append(row);
+      };
+      addHeading("Arquivos enviados");
+      if(uploaded.files.length)uploaded.files.forEach(file=>addRow(file,"/api/files/"+encodeURIComponent(file.id),file.content_type,true));
+      else {const p=document.createElement("p");p.className="simple-empty";p.textContent="Nenhum anexo enviado.";content.append(p)}
+      addHeading("Arquivos do projeto");
+      if(project.files.length)project.files.forEach(file=>{
+        const endpoint="/api/project-files/"+file.path.split("/").map(encodeURIComponent).join("/");
+        addRow(file,endpoint,"gerado ou salvo no projeto",false);
       });
+      else {const p=document.createElement("p");p.className="simple-empty";p.textContent="Ainda não há arquivos no diretório de projetos.";content.append(p)}
     }catch(e){empty(e.message)}
   }
   async function loadConnectors(){
