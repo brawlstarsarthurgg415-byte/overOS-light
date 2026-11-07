@@ -48,6 +48,8 @@
     $("taskSubtitle").textContent="Conectando à API local autenticada";
     timeline.innerHTML="";eventCard({title:"Conectando à Kelly API",detail:"Os eventos serão recebidos do motor conectado; nenhum comando fictício será exibido.",kind:"running"});
     try{
+      const health=await fetch("/api/health").then(r=>r.json());
+      if(!health.executor_configured){addMessage("assistant","A API de conversa está pronta, mas o executor da Kelly Code ainda não foi conectado ao motor do terminal. Por isso não vou fingir que executei essa tarefa.");$("taskSubtitle").textContent="Executor de código não conectado";return}
       const response=await fetch("/api/tasks",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({prompt:userText,project_dir:"."})});
       const result=await response.json();if(!response.ok)throw new Error(result.error||("HTTP "+response.status));
       $("taskTitle").textContent="Tarefa "+result.id.slice(0,8);
