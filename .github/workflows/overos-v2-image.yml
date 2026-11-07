@@ -71,6 +71,12 @@ jobs:
           cp v2/apps/overosctl "$ROOT/usr/bin/overosctl"
           chmod 0755 "$ROOT/usr/bin/overosctl"
           ln -sf /usr/bin/overosctl "$ROOT/bin/overosctl"
+          mkdir -p "$ROOT/usr/share/overos/overstore"
+          cp v2/apps/overstore/index.html "$ROOT/usr/share/overos/overstore/index.html"
+          cp v2/apps/overstore/store.css "$ROOT/usr/share/overos/overstore/store.css"
+          cp v2/apps/overstore/store.js "$ROOT/usr/share/overos/overstore/store.js"
+          cp v2/apps/overstore/CATALOGO.json "$ROOT/usr/share/overos/overstore/CATALOGO.json"
+          cp v2/apps/overstore/README.md "$ROOT/usr/share/overos/overstore/README.md"
           cp v2/branding/overos-logo-horizontal.svg "$ROOT/usr/share/overos/overos-logo.svg"
           cat > "$ROOT/init" <<'INIT'
           #!/bin/sh
