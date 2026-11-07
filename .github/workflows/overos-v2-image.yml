@@ -37,7 +37,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential bc bison flex libssl-dev libelf-dev \
             cpio xz-utils wget curl git grub-pc-bin parted e2fsprogs \
-            qemu-system-x86 busybox-static
+            qemu-system-x86 busybox-static fonts-dejavu-core
 
       - name: Compilar kernel Linux x86_64
         env:
@@ -73,7 +73,7 @@ jobs:
           cp /bin/busybox "$ROOT/bin/busybox"
           gcc -static -O2 -Wall -Wextra -o "$ROOT/usr/bin/over-shell" v2/desktop/over-shell.c
           chmod 0755 "$ROOT/usr/bin/over-shell"
-          for app in sh mount mkdir sleep uname free df cat clear reboot poweroff hostname \
+          for app in sh mount mkdir sleep uname free df cat clear reboot poweroff hostname tr \
             ln ls awk grep sed cp mv chmod; do
             ln -sf busybox "$ROOT/bin/$app"
           done
@@ -92,6 +92,9 @@ jobs:
           cp v2/apps/overbrowser/browser.js "$ROOT/usr/share/overos/overbrowser/browser.js"
           cp v2/apps/overbrowser/README.md "$ROOT/usr/share/overos/overbrowser/README.md"
           cp v2/branding/overos-logo-horizontal.svg "$ROOT/usr/share/overos/overos-logo.svg"
+          mkdir -p "$ROOT/usr/share/overos/setup"
+          cp v2/setup/firstboot.sh "$ROOT/usr/share/overos/setup/firstboot.sh"
+          chmod 0755 "$ROOT/usr/share/overos/setup/firstboot.sh"
           cat > "$ROOT/init" <<'INIT'
           #!/bin/sh
           mount -t proc proc /proc
@@ -102,11 +105,16 @@ jobs:
           clear
           echo
           echo "Bem-vindo ao OverOS Lite V2"
-          echo "Utilitarios leves disponíveis: overosctl, status, files e settings."
-          echo "Iniciando a interface grafica OverOS..."
-          if [ -x /usr/bin/over-shell ]; then
-            /usr/bin/over-shell
-            echo "A interface grafica nao iniciou; verifique o framebuffer /dev/fb0."
+          if [ ! -f /etc/overos/setup.conf ]; then
+            /usr/share/overos/setup/firstboot.sh
+          fi
+          SESSION=auto
+          if [ -f /etc/overos/setup.conf ]; then . /etc/overos/setup.conf; fi
+          echo "Usuario configurado: ${username:-over}"
+          echo "Utilitarios leves: overosctl"
+          if [ "$SESSION" != terminal ] && [ -x /usr/bin/over-shell ]; then
+            echo "Iniciando a interface grafica OverOS..."
+            /usr/bin/over-shell || echo "Framebuffer indisponivel; iniciando terminal."
           fi
           echo "Digite overosctl para abrir os utilitarios."
           exec /bin/sh
@@ -129,12 +137,21 @@ jobs:
           sudo mkfs.ext2 -F "${LOOP}p1"
           sudo mkdir -p "$RUNNER_TEMP/overos-mnt"
           sudo mount "${LOOP}p1" "$RUNNER_TEMP/overos-mnt"
-          sudo mkdir -p "$RUNNER_TEMP/overos-mnt/boot/grub"
+          sudo mkdir -p "$RUNNER_TEMP/overos-mnt/boot/grub/themes/overos" "$RUNNER_TEMP/overos-mnt/boot/grub/fonts"
+          sudo cp v2/boot/grub-theme/theme.txt "$RUNNER_TEMP/overos-mnt/boot/grub/themes/overos/theme.txt"
+          sudo cp /usr/share/grub/unicode.pf2 "$RUNNER_TEMP/overos-mnt/boot/grub/fonts/unicode.pf2"
           sudo cp out/vmlinuz "$RUNNER_TEMP/overos-mnt/boot/vmlinuz"
           sudo cp out/overos-initramfs.cpio.gz "$RUNNER_TEMP/overos-mnt/boot/initramfs.cpio.gz"
           sudo tee "$RUNNER_TEMP/overos-mnt/boot/grub/grub.cfg" > /dev/null <<'GRUB'
           set timeout=5
           set default=0
+          if loadfont /boot/grub/fonts/unicode.pf2; then
+            insmod gfxterm
+            insmod all_video
+            set gfxmode=auto
+            terminal_output gfxterm
+            set theme=/boot/grub/themes/overos/theme.txt
+          fi
           menuentry "OverOS Lite V2 (experimental)" {
             linux /boot/vmlinuz console=tty0 loglevel=4
             initrd /boot/initramfs.cpio.gz
