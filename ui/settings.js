@@ -69,6 +69,6 @@
     catch(e) { feedback("providerFeedback","Falha no teste: "+e.message); }
   });
   document.querySelectorAll(".nav-item[data-view]").forEach(b=>b.addEventListener("click",()=>show(b.dataset.view)));
-  fetch("/api/health").then(r=>r.json()).then(d=>{const el=$("connectionStatus");el.innerHTML="<i></i> API "+(d.ok?"online":"offline");}).catch(()=>{$("connectionStatus").textContent="API indisponível";});
+  fetch("/api/health").then(r=>r.json()).then(d=>{const el=$("connectionStatus");el.innerHTML="<i></i> API "+(d.ok?"online":"offline")+(d.executor_configured?" · Code ativa":" · chat disponível");}).catch(()=>{$("connectionStatus").textContent="API indisponível";});
   $("modelSelect").addEventListener("click",()=>show("settings"));
 })();
