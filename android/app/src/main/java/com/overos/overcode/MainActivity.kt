@@ -65,9 +65,76 @@ class MainActivity : ComponentActivity() {
             var mode by remember { mutableStateOf(AgentMode.KELLY) }
             var activeTaskId by remember { mutableStateOf<String?>(null) }
             var executionExpanded by remember { mutableStateOf(true) }
+            var liveMode by remember { mutableStateOf(false) }
+            val pendingFiles = remember { mutableStateListOf<UploadedFile>() }
             val messages = remember { mutableStateListOf<ChatMessage>() }
             val executionLog = remember { mutableStateListOf<String>() }
             val scope = rememberCoroutineScope()
+            val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri != null) scope.launch {
+                    try {
+                        val uploaded = withContext(Dispatchers.IO) { uploadFile(base, token, uri) }
+                        pendingFiles.add(uploaded)
+                        status = "Arquivo anexado: ${uploaded.name}"
+                    } catch (e: Exception) { status = "Falha no anexo: ${e.message}" }
+                }
+            }
+            val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                if (granted) {
+                    liveMode = true
+                    startLiveListening()
+                } else status = "Permissão de microfone negada"
+            }
+            fun startLiveListening() {
+                if (!liveMode) return
+                startVoiceListening(
+                    onResult = { spoken ->
+                        messages.add(ChatMessage(true, spoken))
+                        busy = true
+                        scope.launch {
+                            try {
+                                val reply = withContext(Dispatchers.IO) {
+                                    postChat(base, token, spoken, sessionId, emptyList())
+                                }
+                                sessionId = reply.second
+                                prefs.edit().putString("session_id", sessionId).apply()
+                                messages.add(ChatMessage(false, reply.first))
+                                status = "Kelly respondeu · ouvindo novamente"
+                                if (reply.third.isNotBlank()) {
+                                    activeTaskId = reply.third
+                                    executionLog.add("Kelly Code recebeu a tarefa " + reply.third.take(8))
+                                    scope.launch {
+                                        try {
+                                            withContext(Dispatchers.IO) {
+                                                streamTaskEvents(base, token, reply.third) { eventText, terminal ->
+                                                    scope.launch(Dispatchers.Main) {
+                                                        executionLog.add(eventText)
+                                                        if (terminal) activeTaskId = null
+                                                    }
+                                                }
+                                            }
+                                        } catch (e: Exception) { executionLog.add("Eventos: " + e.message) }
+                                    }
+                                }
+                                speakVoice(reply.first) { if (liveMode) startLiveListening() }
+                            } catch (e: Exception) {
+                                messages.add(ChatMessage(false, "Falha na conversa por voz: ${e.message}"))
+                                status = "Falha na voz"
+                                if (liveMode) startLiveListening()
+                            } finally { busy = false }
+                        }
+                    },
+                    onError = { message ->
+                        status = message
+                        if (liveMode && message.startsWith("Não entendi")) {
+                            scope.launch {
+                                kotlinx.coroutines.delay(700)
+                                if (liveMode) startLiveListening()
+                            }
+                        }
+                    }
+                )
+            }
 
             MaterialTheme(colorScheme = darkColorScheme(background = bg, surface = panel, primary = cyan)) {
                 Column(Modifier.fillMaxSize().background(bg).padding(16.dp)) {
@@ -159,13 +226,40 @@ class MainActivity : ComponentActivity() {
                         Spacer(Modifier.height(8.dp))
                     }
 
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                    ) {
+                        TextButton(onClick = { filePicker.launch(arrayOf("*/*")) }, enabled = !busy) {
+                            Text("+ Anexar")
+                        }
+                        TextButton(onClick = {
+                            if (liveMode) {
+                                liveMode = false
+                                stopVoice()
+                                status = "Modo Live desligado"
+                            } else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                liveMode = true
+                                startLiveListening()
+                            } else {
+                                micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        }) { Text(if (liveMode) "■ Parar Live" else "◉ Live") }
+                        pendingFiles.forEach { file ->
+                            TextButton(onClick = { pendingFiles.remove(file) }) {
+                                Text("📎 ${file.name} ×", maxLines = 1)
+                            }
+                        }
+                    }
+
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             input, { input = it }, modifier = Modifier.weight(1f),
                             placeholder = { Text(if (mode == AgentMode.KELLY) "Mensagem para Kelly…" else "Tarefa para Kelly Code…") },
                             maxLines = 4
                         )
-                        Button(enabled = !busy && input.isNotBlank() && !editing, onClick = {
+                        Button(enabled = !busy && (input.isNotBlank() || pendingFiles.isNotEmpty()) && !editing, onClick = {
                             val prompt = input.trim()
                             input = ""
                             messages.add(ChatMessage(true, prompt))
