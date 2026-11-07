@@ -119,18 +119,43 @@ def start():
     print("[OverCode] Não consegui iniciar a API. Veja: overcode logs")
     raise SystemExit(1)
 
+def find_api_pids():
+    found=[]
+    proc_root=Path("/proc")
+    if not proc_root.exists(): return found
+    for entry in proc_root.iterdir():
+        if not entry.name.isdigit(): continue
+        pid=int(entry.name)
+        if pid==os.getpid(): continue
+        try:
+            cmd=(entry/"cmdline").read_bytes().replace(b"\\0",b" ")
+            if b"kelly_dual.api" in cmd and b"-m" in cmd:
+                found.append(pid)
+        except (OSError,PermissionError):
+            continue
+    return found
+
 def stop():
-    if not PID.exists():
-        print("[OverCode] Nenhum PID registrado.")
-        return
-    try:
-        pid=int(PID.read_text().strip())
-        os.kill(pid,signal.SIGTERM)
-        print("[OverCode] Sinal de parada enviado.")
-    except (ValueError,ProcessLookupError):
-        print("[OverCode] Processo já estava parado.")
-    finally:
+    pids=set(find_api_pids())
+    if PID.exists():
+        try: pids.add(int(PID.read_text().strip()))
+        except ValueError: pass
+    if not pids:
+        print("[OverCode] Nenhuma API ativa encontrada.")
         PID.unlink(missing_ok=True)
+        return
+    for pid in pids:
+        try: os.kill(pid,signal.SIGTERM)
+        except ProcessLookupError: pass
+    for _ in range(25):
+        alive=[]
+        for pid in pids:
+            try: os.kill(pid,0); alive.append(pid)
+            except ProcessLookupError: pass
+        if not alive: break
+        time.sleep(.2)
+    PID.unlink(missing_ok=True)
+    print("[OverCode] API parada.")
 
 def chat():
     start()
@@ -171,8 +196,10 @@ def main():
             print("\n".join(lines[-100:]))
         else: print("Ainda não há logs.")
     elif cmd=="update":
+        stop()
         subprocess.run(["git","-C",str(APP),"pull","--ff-only","origin","overcode-2.7-agent-core"],check=True)
-        print("[OverCode] Código atualizado. Reinicie com: overcode stop && overcode start")
+        print("[OverCode] Código atualizado. Reiniciando a API…")
+        start()
     elif cmd in ("help","--help","-h"):
         print("Uso: overcode [start|stop|status|logs|update|help]\nSem argumento: abre o chat com Kelly.")
     else:
