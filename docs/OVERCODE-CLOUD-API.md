@@ -18,6 +18,16 @@ A Kelly API serve a interface web/app e conecta a conversa a um provedor de IA c
 
 A API key é armazenada em `~/.overos/kelly/providers.json` com permissão `0600`. Ela nunca é retornada ao navegador nem deve ser colocada no APK, no JavaScript ou no Git.
 
+## Instalação no OverOS / Debian 13
+
+O instalador cria um serviço systemd, gera um token forte e mantém a API vinculada a localhost:
+
+```bash
+sudo bash instalar-kelly-api.sh
+```
+
+O token fica em `/etc/overcode/kelly.env` com permissão 0600. A interface é servida na mesma origem da API.
+
 ## Inicialização local
 
 Gere um token de acesso forte:
@@ -39,6 +49,8 @@ Execute com `python3 -m kelly_dual.api` a partir da raiz do repositório.
 A conversa pode iniciar sem o executor de código; nesse caso, `/api/health` informa que ele não está configurado e as tarefas de código não devem ser consideradas disponíveis.
 
 ## Publicação na internet
+
+Há um exemplo de proxy HTTPS em `deploy/nginx-overcode.conf.example`. Configure um domínio, emita o certificado TLS e habilite esse bloco no Nginx. O serviço Kelly continua em `127.0.0.1:8765`; não abra essa porta no firewall.
 
 A API embutida usa HTTP simples e deve permanecer em localhost. Publique o site e faça proxy de `/api/` por Nginx/Caddy com HTTPS e certificado válido. Não exponha diretamente a porta 8765 na internet. Use firewall, limite de requisições no proxy, autenticação forte e monitore o uso/custos do provedor.
 
