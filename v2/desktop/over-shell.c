@@ -126,7 +126,86 @@ static void draw(void) {
   text((W-dockw)/2+18,H-43,"1 HOME   2 APPS   3 FILES   4 SETTINGS",1,white);
   text(22,H-20,"ARROWS: MOVE    ENTER: OPEN    Q: EXIT",1,muted);
 }
-int main(void) {
+static void draw_setup(int stage,const char *username,int mode,int pair) {
+  uint32_t bg=rgb(7,12,25), panel=rgb(17,27,47), card=rgb(25,39,64);
+  uint32_t white=rgb(238,245,255), muted=rgb(145,165,194), blue=rgb(57,145,255), cyan=rgb(75,213,226);
+  rect(0,0,W,H,bg);
+  for(int y=0;y<H;y++) rect(0,y,W,1,rgb(7,12+y*10/(H?H:1),25+y*18/(H?H:1)));
+  int cw=W-80; if(cw>760)cw=760; if(cw<280)cw=W-24;
+  int x=(W-cw)/2, y=(H-330)/2; if(y<12)y=12;
+  roundrect(x,y,cw,330,22,panel);
+  roundrect(x+24,y+22,42,42,21,blue);
+  roundrect(x+43,y+17,16,16,8,cyan);
+  text(x+82,y+34,"MEU OVEROS",2,white);
+  text(x+26,y+91,"CONFIGURACAO INICIAL",1,cyan);
+  if(stage==0) {
+    text(x+26,y+132,"COMO PODEMOS TE CHAMAR?",2,white);
+    roundrect(x+24,y+165,cw-48,52,10,card);
+    text(x+42,y+185,username,2,white);
+    text(x+26,y+245,"DIGITE SEU NOME E PRESSIONE ENTER",1,muted);
+  } else if(stage==1) {
+    text(x+26,y+132,"COMO DESEJA INICIAR?",2,white);
+    roundrect(x+24,y+164,cw-48,38,9,mode==0?rgb(35,75,125):card);
+    text(x+40,y+178,"1 AUTOMATICO",1,white);
+    roundrect(x+24,y+207,cw-48,38,9,mode==1?rgb(35,75,125):card);
+    text(x+40,y+221,"2 SOMENTE TERMINAL",1,white);
+    roundrect(x+24,y+250,cw-48,38,9,mode==2?rgb(35,75,125):card);
+    text(x+40,y+264,"3 INTERFACE GRAFICA",1,white);
+  } else {
+    text(x+26,y+132,"CONFIGURAR O APP?",2,white);
+    text(x+26,y+169,"MEU OVEROS NO CELULAR",1,muted);
+    roundrect(x+24,y+205,(cw-60)/2,54,10,pair?rgb(35,75,125):card);
+    text(x+42,y+225,"Y SIM",2,white);
+    roundrect(x+36+(cw-60)/2,y+205,(cw-60)/2,54,10,!pair?rgb(35,75,125):card);
+    text(x+54+(cw-60)/2,y+225,"N NAO",2,white);
+    text(x+26,y+280,"QR E CODIGO APARECEM SOMENTE SE ESCOLHER SIM",1,muted);
+  }
+  text(x+26,y+310,"OVEROS LITE  |  SETAS / TECLAS / ENTER",1,muted);
+}
+
+static int save_setup(const char *username,int mode,int pair) {
+  if(mkdir("/etc/overos",0755)<0 && errno!=EEXIST)return -1;
+  FILE *fp=fopen("/etc/overos/setup.conf","w");
+  if(!fp)return -1;
+  const char *session=mode==1?"terminal":mode==2?"gui":"auto";
+  fprintf(fp,"username=%s\navatar=blue\nsession=%s\npair=%s\nsetup_complete=1\n",
+          username,session,pair?"yes":"no");
+  fclose(fp);
+  chmod("/etc/overos/setup.conf",0600);
+  return 0;
+}
+
+static int run_setup(void) {
+  char username[33]="over";
+  int stage=0,mode=0,pair=0;
+  for(;;) {
+    draw_setup(stage,username,mode,pair);
+    struct pollfd p={STDIN_FILENO,POLLIN,0};
+    if(poll(&p,1,-1)<=0)continue;
+    unsigned char c=0;
+    if(read(STDIN_FILENO,&c,1)!=1)continue;
+    if(stage==0) {
+      if(c=='\r'||c=='\n') { stage=1; continue; }
+      if(c==127||c==8) { size_t n=strlen(username); if(n>0)username[n-1]=0; continue; }
+      if(((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='-')&&strlen(username)<31) {
+        size_t n=strlen(username); username[n]=(char)((c>='A'&&c<='Z')?c+32:c); username[n+1]=0;
+      }
+    } else if(stage==1) {
+      if(c=='1'){mode=0;stage=2;}
+      else if(c=='2'){mode=1;stage=2;}
+      else if(c=='3'){mode=2;stage=2;}
+    } else {
+      if(c=='y'||c=='Y'){pair=1;if(save_setup(username,mode,pair)<0)return 1;break;}
+      if(c=='n'||c=='N'){pair=0;if(save_setup(username,mode,pair)<0)return 1;break;}
+    }
+  }
+  draw_setup(3,username,mode,pair);
+  text(W/2-90,H/2+120,"CONFIGURACAO SALVA",1,rgb(75,213,226));
+  for(int i=0;i<8;i++){struct pollfd p={STDIN_FILENO,POLLIN,0};if(poll(&p,1,250)>0)break;}
+  return 0;
+}
+
+int main(int argc,char **argv) {
   fb=open("/dev/fb0",O_RDWR);
   if(fb<0){ dprintf(2,"OverOS Shell: /dev/fb0 indisponivel: %s\n",strerror(errno)); return 2; }
   if(ioctl(fb,FBIOGET_FSCREENINFO,&fi)||ioctl(fb,FBIOGET_VSCREENINFO,&vi)){dprintf(2,"OverOS Shell: framebuffer invalido\n");return 2;}
@@ -137,6 +216,7 @@ int main(void) {
   tty=open("/dev/tty0",O_RDWR|O_NOCTTY);
   if(tty>=0){ioctl(tty,KDGETMODE,&old_graphics);ioctl(tty,KDSETMODE,KD_GRAPHICS);}
   if(tcgetattr(STDIN_FILENO,&oldt)==0){struct termios raw=oldt;raw.c_lflag&=~(ICANON|ECHO);raw.c_cc[VMIN]=0;raw.c_cc[VTIME]=1;tcsetattr(STDIN_FILENO,TCSAFLUSH,&raw);}
+  if(argc>1 && strcmp(argv[1],"--setup")==0){int result=run_setup();cleanup();return result;}
   draw();
   for(;;){
     struct pollfd p={STDIN_FILENO,POLLIN,0}; if(poll(&p,1,250)>0&&p.revents&POLLIN){
