@@ -17,7 +17,8 @@ import sqlite3
 import threading
 import time
 import uuid
-from dataclasses import asdict, dataclass, field
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Callable, Optional, Protocol
@@ -94,12 +95,16 @@ class TaskStore:
             """)
             db.execute("CREATE INDEX IF NOT EXISTS events_task_seq ON events(task_id, seq)")
 
+    @contextmanager
     def _connect(self):
         db = sqlite3.connect(self.path, timeout=30)
-        db.row_factory = sqlite3.Row
-        db.execute("PRAGMA journal_mode=WAL")
-        db.execute("PRAGMA foreign_keys=ON")
-        return db
+        try:
+            db.row_factory = sqlite3.Row
+            db.execute("PRAGMA journal_mode=WAL")
+            db.execute("PRAGMA foreign_keys=ON")
+            yield db
+        finally:
+            db.close()
 
     def create(self, task: Task):
         with self._lock, self._connect() as db:
