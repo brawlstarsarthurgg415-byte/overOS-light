@@ -32,6 +32,7 @@ exit 0
 # v1.4: a Kelly ganhou coração (sentimentos que mudam, persistem e moldam o jeito dela agir).
 # v1.5: Ctrl+C não derruba mais o motor da IA local; se ele cair, a Kelly religa sozinha.
 # v1.6: a Kelly reconhece muito mais ofensas e reage na hora, sem depender da IA.
+# v2.7: atualização segura com validação, cópia de segurança e troca atômica do executável.
 import os, sys, re, json, time, base64, random, shutil, subprocess, threading, select, urllib.request, urllib.error
 try:
     import termios, tty
@@ -94,7 +95,7 @@ C = {"r": "\033[0m", "dim": "\033[90m", "ciano": "\033[1;36m", "verde": "\033[1;
 PET = {"idle": "ʕ•ᴥ•ʔ", "feliz": "ʕ≧ᴥ≦ʔ", "erro": "ʕ;ᴥ;ʔ", "trab": "ʕ•ᴥ•ʔ🔧", "dorme": "ʕ-ᴥ-ʔ zZ"}
 PENSAR = ["✻", "✽", "✶", "✳"]
 MASCOTE = ["▐▛███▜▌", "▝▜█████▛▘", "  ▘▘ ▝▝"]
-VERSAO = "1.7"
+VERSAO = "2.7"
 
 
 def cor(c, t):
@@ -1293,13 +1294,26 @@ def aplicar_atualizacao(src):
         fala("erro", "O arquivo novo está com defeito. Não atualizei.")
         return False
     alvo = os.path.realpath(__file__)
+    temporario = alvo + ".novo"
+    backup = os.path.join(DIR, "overia-code.antigo")
     try:
-        shutil.copy(alvo, os.path.join(DIR, "overia-code.antigo"))
-        with open(alvo, "w", encoding="utf-8") as f:
+        # Grava e valida o arquivo novo antes de substituir o executável atual.
+        with open(temporario, "w", encoding="utf-8") as f:
             f.write(src)
-        os.chmod(alvo, 0o755)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(temporario, 0o755)
+        with open(temporario, "r", encoding="utf-8") as f:
+            compile(f.read(), temporario, "exec")
+        shutil.copy2(alvo, backup)
+        os.replace(temporario, alvo)
     except Exception as e:
-        fala("erro", f"Não consegui gravar a atualização: {e}")
+        try:
+            if os.path.exists(temporario):
+                os.remove(temporario)
+        except OSError:
+            pass
+        fala("erro", f"Não consegui aplicar a atualização; a versão atual foi preservada: {e}")
         return False
     return True
 
