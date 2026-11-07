@@ -22,4 +22,4 @@ jobs:
       - name: Verificar instalador e motor
         run: bash tests/test-overia-code.sh
       - name: Testar orquestrador Kelly Dual
-        run: python -m unittest discover -s tests -p "test-kelly-dual.py" -v
+        run: python -m unittest discover -s tests -p "test_kelly_dual.py" -v
