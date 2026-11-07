@@ -188,7 +188,13 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                     if not session_id:
                         session_id = sessions.create()
                     else:
-                        sessions.get(session_id)
+                        saved_messages = sessions.get(session_id)
+                        if not safe_history:
+                            safe_history = [
+                                {"role": item["role"], "content": item["content"]}
+                                for item in saved_messages[-30:]
+                                if item["role"] in {"user", "assistant"}
+                            ]
                     command_answer = run_slash_command(
                         message, safe_history, root, session_id, sessions,
                         providers.complete, providers.public_config
