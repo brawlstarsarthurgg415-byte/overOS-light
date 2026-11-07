@@ -20,8 +20,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - name: Verificar instalador e motor
-        run: bash tests/test-overia-code.sh
+      - name: Verificar instaladores
+        run: bash -n instalar-kelly-api.sh && bash tests/test-overia-code.sh
       - name: Compilar API e orquestrador Kelly
         run: python -m py_compile kelly_dual/api.py kelly_dual/orchestrator.py kelly_dual/providers.py
       - name: Testar orquestrador Kelly Dual
