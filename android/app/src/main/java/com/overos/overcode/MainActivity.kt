@@ -128,6 +128,14 @@ class MainActivity : ComponentActivity() {
                             Text("overcode", style = MaterialTheme.typography.titleLarge, color = Color.White)
                             Text(status, style = MaterialTheme.typography.labelSmall, color = cyan)
                         }
+                        TextButton(onClick = {
+                            scope.launch {
+                                status = "Verificando API…"
+                                try {
+                                    status = withContext(Dispatchers.IO) { getApiStatus(base) }
+                                } catch (e: Exception) { status = "API indisponível: ${e.message}" }
+                            }
+                        }) { Text("Status") }
                         TextButton(onClick = { editing = !editing }) { Text("Conexão") }
                     }
 
@@ -435,6 +443,21 @@ class MainActivity : ComponentActivity() {
         textToSpeech?.shutdown()
         textToSpeech = null
         super.onDestroy()
+    }
+
+    private fun getApiStatus(base: String): String {
+        val conn = URL(base.trimEnd('/') + "/api/health").openConnection() as HttpURLConnection
+        try {
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 8000
+            conn.readTimeout = 8000
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            val data = JSONObject(body)
+            return if (data.optBoolean("ok")) {
+                if (data.optBoolean("executor_configured")) "API online · Kelly Code configurada"
+                else "API online · Kelly disponível"
+            } else "API respondeu, mas não está saudável"
+        } finally { conn.disconnect() }
     }
 
     private fun authorizedConnection(url: String, token: String, method: String): HttpURLConnection {
