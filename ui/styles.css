@@ -26,3 +26,30 @@
 .simple-view{padding-top:12vh}.simple-view>*{max-width:760px;margin-left:auto;margin-right:auto}
 .hidden{display:none!important}
 @media(max-width:850px){.settings-grid{grid-template-columns:1fr}.settings-view{height:calc(100vh - 60px);padding:24px 16px}.settings-card{padding:19px}}
+
+
+/* OverCode 2.7 · anexos, voz e ferramentas */
+.attachment-list{display:flex;flex-wrap:wrap;gap:7px;padding:0 12px}
+.attachment-chip{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:5px 9px;border:1px solid #394353;border-radius:8px;background:#1d2430;color:#dce5ed;font-size:10px}
+.attachment-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.attachment-chip button{border:0;background:transparent;color:#aeb8c7;font-size:16px;padding:0 2px}
+.voice-select{max-width:128px;min-width:0;border:1px solid #333b49;border-radius:7px;background:#1b202b;color:#aeb8c7;padding:5px;font-size:10px}
+.voice-status{font-size:10px;color:var(--cyan);white-space:nowrap}
+.live-button{font-size:10px!important;padding:0 9px!important}
+.live-button.active{border-color:#b66d78!important;color:#ffb5bd!important;background:#3a2029!important}
+.simple-content{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:24px;align-items:start}
+.capability-card{background:#171c26;border:1px solid #2b3341;border-radius:12px;padding:17px;min-width:0}
+.capability-card h3{font-size:13px;margin:0 0 8px;color:#eef0f6}
+.capability-card p{font-size:11px;line-height:1.6;color:#9ca6b7;margin:0 0 13px;overflow-wrap:anywhere}
+.capability-tag{display:inline-block;border:1px solid #3a4656;border-radius:20px;padding:4px 8px;font-size:9px;color:#8edbd1}
+.simple-empty{color:var(--muted);font-size:12px;line-height:1.7;grid-column:1/-1}
+.file-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#171c26;border:1px solid #2b3341;border-radius:10px;padding:13px;grid-column:1/-1}
+.file-info{min-width:0;display:flex;flex-direction:column;gap:5px}
+.file-info strong{font-size:12px;overflow-wrap:anywhere}
+.file-info small{font-size:10px;color:var(--muted)}
+.file-actions{display:flex;gap:7px;flex-shrink:0}
+.file-actions button{font-size:10px;padding:7px 10px}
+.tool-list{display:flex;flex-wrap:wrap;gap:7px;grid-column:1/-1}
+.tool-list code{font-size:10px;background:#0e1219;border:1px solid #2c3442;color:#a7d8d1;padding:6px 8px;border-radius:6px}
+.api-example{grid-column:1/-1;white-space:pre-wrap;overflow-wrap:anywhere;background:#0d1118;border:1px solid #2a3240;border-radius:10px;padding:15px;color:#b9c7d7;font:11px/1.8 ui-monospace,monospace}
+@media(max-width:760px){.voice-select{max-width:92px}.voice-status{display:none}.file-row{align-items:flex-start;flex-direction:column}.file-actions{width:100%}.file-actions button{flex:1}}
