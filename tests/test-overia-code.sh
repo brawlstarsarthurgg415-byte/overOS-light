@@ -2,7 +2,7 @@
 # Verificações rápidas do instalador híbrido (shell + Python embutido).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INSTALLER="$ROOT/instalar-overia-code-v1_6.sh"
+INSTALLER="$ROOT/instalar-overia-code-v1_7.sh"
 
 # O instalador é híbrido: valida somente o cabeçalho como Bash.
 awk '$0 == "#__OVERIA_PY_INICIO__" { exit } { print }' "$INSTALLER" | bash -n
