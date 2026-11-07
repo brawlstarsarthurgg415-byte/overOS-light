@@ -145,7 +145,7 @@ jobs:
           case "$1" in
             deconfig) ifconfig "$interface" 0.0.0.0 ;;
             bound|renew)
-              ifconfig "$interface" "$ip" netmask "\${subnet:-255.255.255.0}" up
+              ifconfig "$interface" "$ip" netmask "${subnet:-255.255.255.0}" up
               for r in $router; do route add default gw "$r" "$interface" 2>/dev/null || true; done
               : > /etc/resolv.conf
               for ns in $dns; do echo "nameserver $ns" >> /etc/resolv.conf; done
@@ -156,7 +156,7 @@ jobs:
           chmod 755 /usr/share/udhcpc/default.script
           for iface_path in /sys/class/net/eth* /sys/class/net/en*; do
             [ -e "$iface_path" ] || continue
-            iface=\${iface_path##*/}
+            iface=${iface_path##*/}
             udhcpc -i "$iface" -q -n -t 5 -T 2 -s /usr/share/udhcpc/default.script >/run/udhcpc-"$iface".log 2>&1 &
           done
           clear
@@ -167,7 +167,7 @@ jobs:
           fi
           session=auto
           if [ -f /etc/overos/setup.conf ]; then . /etc/overos/setup.conf; fi
-          echo "Usuario configurado: \${username:-over}"
+          echo "Usuario configurado: ${username:-over}"
           echo "Iniciando serviço seguro de pareamento..."
           /usr/bin/over-pair serve --state-dir "$PAIR_DIR" >/run/over-pair.log 2>&1 &
           sleep 1
