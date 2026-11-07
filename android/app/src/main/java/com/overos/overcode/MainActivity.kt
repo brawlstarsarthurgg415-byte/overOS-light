@@ -47,6 +47,7 @@ private enum class AgentMode { KELLY, CODE }
 class MainActivity : ComponentActivity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
+    private var selectedVoiceName: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,6 +67,9 @@ class MainActivity : ComponentActivity() {
             var activeTaskId by remember { mutableStateOf<String?>(null) }
             var executionExpanded by remember { mutableStateOf(true) }
             var liveMode by remember { mutableStateOf(false) }
+            var showVoicePicker by remember { mutableStateOf(false) }
+            var voiceOptions by remember { mutableStateOf(emptyList<String>()) }
+            var selectedVoice by remember { mutableStateOf(prefs.getString("voice", "") ?: "") }
             val pendingFiles = remember { mutableStateListOf<UploadedFile>() }
             val messages = remember { mutableStateListOf<ChatMessage>() }
             val executionLog = remember { mutableStateListOf<String>() }
@@ -244,6 +248,10 @@ class MainActivity : ComponentActivity() {
                             Text("+ Anexar")
                         }
                         TextButton(onClick = {
+                            voiceOptions = textToSpeech?.voices?.filter { it.locale.language == "pt" }?.map { it.name } ?: emptyList()
+                            showVoicePicker = true
+                        }) { Text("Voz") }
+                        TextButton(onClick = {
                             if (liveMode) {
                                 liveMode = false
                                 stopVoice()
@@ -357,6 +365,28 @@ class MainActivity : ComponentActivity() {
                         }) { Text(if (busy) "…" else "➤") }
                     }
                 }
+                if (showVoicePicker) {
+                    AlertDialog(
+                        onDismissRequest = { showVoicePicker = false },
+                        title = { Text("Voz da Kelly") },
+                        text = {
+                            Column {
+                                if (voiceOptions.isEmpty()) Text("Nenhuma voz em português foi encontrada no mecanismo de voz do Android.")
+                                voiceOptions.forEach { voiceName ->
+                                    TextButton(onClick = {
+                                        val voice = textToSpeech?.voices?.firstOrNull { it.name == voiceName }
+                                        if (voice != null) textToSpeech?.voice = voice
+                                        selectedVoice = voiceName
+                                        selectedVoiceName = voiceName
+                                        prefs.edit().putString("voice", voiceName).apply()
+                                        showVoicePicker = false
+                                    }) { Text(if (voiceName == selectedVoice) "✓ $voiceName" else voiceName) }
+                                }
+                            }
+                        },
+                        confirmButton = { TextButton(onClick = { showVoicePicker = false }) { Text("Fechar") } }
+                    )
+                }
             }
         }
     }
@@ -415,6 +445,7 @@ class MainActivity : ComponentActivity() {
             onDone()
             return
         }
+        selectedVoiceName?.let { name -> tts.voices?.firstOrNull { it.name == name }?.let { tts.voice = it } }
         val utteranceId = UUID.randomUUID().toString()
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(id: String?) {}
