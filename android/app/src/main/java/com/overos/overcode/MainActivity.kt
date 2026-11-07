@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
             var input by remember { mutableStateOf("") }
             var busy by remember { mutableStateOf(false) }
             var status by remember { mutableStateOf("Conecte à Kelly no OverOS") }
+            var sessionId by remember { mutableStateOf(prefs.getString("session_id", "") ?: "") }
             var mode by remember { mutableStateOf(AgentMode.KELLY) }
             var activeTaskId by remember { mutableStateOf<String?>(null) }
             var executionExpanded by remember { mutableStateOf(true) }
@@ -151,8 +152,10 @@ class MainActivity : ComponentActivity() {
                                 status = "Kelly está respondendo…"
                                 scope.launch {
                                     try {
-                                        val answer = withContext(Dispatchers.IO) { postChat(base, token, prompt) }
-                                        messages.add(ChatMessage(false, answer))
+                                        val reply = withContext(Dispatchers.IO) { postChat(base, token, prompt, sessionId) }
+                                        sessionId = reply.second
+                                        prefs.edit().putString("session_id", sessionId).apply()
+                                        messages.add(ChatMessage(false, reply.first))
                                         status = "Kelly conectada"
                                     } catch (e: Exception) {
                                         messages.add(ChatMessage(false, "Falha na conexão: ${e.message}\nConfira endereço, token e se a API está ligada."))
@@ -209,21 +212,26 @@ class MainActivity : ComponentActivity() {
         return conn
     }
 
-    private fun postChat(base: String, token: String, message: String): String {
+    private fun postChat(base: String, token: String, message: String, sessionId: String): Pair<String, String> {
         val conn = authorizedConnection(base.trimEnd('/') + "/api/chat", token, "POST")
         try {
             conn.readTimeout = 60000
             conn.setRequestProperty("Content-Type", "application/json")
             conn.doOutput = true
             conn.outputStream.use {
-                it.write(JSONObject().put("message", message).put("history", org.json.JSONArray())
-                    .toString().toByteArray())
+                val payload = JSONObject().put("message", message).put("history", org.json.JSONArray())
+                if (sessionId.isNotBlank()) payload.put("session_id", sessionId)
+                it.write(payload.toString().toByteArray())
             }
             val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
             val body = stream.bufferedReader().use { it.readText() }
             if (conn.responseCode !in 200..299) throw IllegalStateException(
                 JSONObject(body).optString("error", "HTTP ${conn.responseCode}"))
-            return JSONObject(body).optString("answer", "Kelly não retornou uma resposta.")
+            val response = JSONObject(body)
+            return Pair(
+                response.optString("answer", "Kelly não retornou uma resposta."),
+                response.optString("session_id", sessionId)
+            )
         } finally { conn.disconnect() }
     }
 
