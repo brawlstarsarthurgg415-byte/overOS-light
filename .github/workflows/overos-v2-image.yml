@@ -64,10 +64,13 @@ jobs:
           mkdir -p "$ROOT"/{bin,sbin,etc,proc,sys,dev,run,tmp,root,usr/bin,usr/share/overos}
           chmod 1777 "$ROOT/tmp"
           cp /bin/busybox "$ROOT/bin/busybox"
-          for app in sh mount mkdir sleep uname free df cat clear reboot poweroff hostname; do
+          for app in sh mount mkdir sleep uname free df cat clear reboot poweroff hostname \
+            ln ls awk grep sed cp mv chmod; do
             ln -sf busybox "$ROOT/bin/$app"
           done
-          cp v2/branding/fastfetch.sh "$ROOT/bin/fastfetch"
+          cp v2/apps/overosctl "$ROOT/usr/bin/overosctl"
+          chmod 0755 "$ROOT/usr/bin/overosctl"
+          ln -sf /usr/bin/overosctl "$ROOT/bin/overosctl"
           cp v2/branding/overos-logo-horizontal.svg "$ROOT/usr/share/overos/overos-logo.svg"
           cat > "$ROOT/init" <<'INIT'
           #!/bin/sh
@@ -77,11 +80,10 @@ jobs:
           mount -t tmpfs tmpfs /run
           hostname OverOS
           clear
-          /bin/fastfetch
           echo
           echo "Bem-vindo ao OverOS Lite V2"
-          echo "Ambiente experimental de inicializacao."
-          echo "Digite 'fastfetch' para ver as informacoes do sistema."
+          echo "Utilitarios leves disponíveis: overosctl, status, files e settings."
+          echo "Digite 'overosctl' para abrir o menu de aplicativos."
           exec /bin/sh
           INIT
           chmod +x "$ROOT/init"
