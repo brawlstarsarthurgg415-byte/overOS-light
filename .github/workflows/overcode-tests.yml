@@ -21,6 +21,8 @@ jobs:
           python-version: "3.x"
       - name: Verificar instalador e motor
         run: bash tests/test-overia-code.sh
+      - name: Compilar API e orquestrador Kelly
+        run: python -m py_compile kelly_dual/api.py kelly_dual/orchestrator.py
       - name: Testar orquestrador Kelly Dual
         run: python -m unittest discover -s tests -p "test_kelly_dual.py" -v
       - name: Verificar JavaScript do painel
