@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
             var showVoicePicker by remember { mutableStateOf(false) }
             var voiceOptions by remember { mutableStateOf(emptyList<String>()) }
             var selectedVoice by remember { mutableStateOf(prefs.getString("voice", "") ?: "") }
+            selectedVoiceName = selectedVoice.ifBlank { null }
             val pendingFiles = remember { mutableStateListOf<UploadedFile>() }
             val messages = remember { mutableStateListOf<ChatMessage>() }
             val executionLog = remember { mutableStateListOf<String>() }
