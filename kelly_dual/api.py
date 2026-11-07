@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 from typing import Callable
 
 from .orchestrator import TaskCoordinator, Task, TaskEvent
+from . import providers
 
 MAX_BODY = 64 * 1024
 MAX_PROMPT = 20_000
@@ -123,6 +124,9 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                 return
             if not self._authorized():
                 return
+            if path == "/api/providers":
+                self._json(200, providers.public_config())
+                return
             if path.startswith("/api/tasks/") and path.endswith("/events"):
                 task_id = path[len("/api/tasks/"):-len("/events")].strip("/")
                 self._stream_events(task_id)
@@ -144,11 +148,25 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
         def do_POST(self):
             if not self._authorized():
                 return
-            if urlparse(self.path).path != "/api/tasks":
-                self._json(404, {"error": "Rota não encontrada."})
-                return
+            path = urlparse(self.path).path
             try:
                 body = self._body()
+                if path == "/api/providers":
+                    self._json(200, providers.save_config(body))
+                    return
+                if path == "/api/providers/test":
+                    self._json(200, providers.test_connection())
+                    return
+                if path == "/api/chat":
+                    message = str(body.get("message", "")).strip()
+                    if not message or len(message) > MAX_PROMPT:
+                        raise ValueError("Informe uma mensagem de 1 a 20.000 caracteres.")
+                    answer = providers.complete(message, "Você é Kelly, assistente do OverCode. Responda em português brasileiro, seja clara e útil. Para alterações de código, oriente o usuário a delegar uma tarefa à Kelly Code.")
+                    self._json(200, {"answer": answer})
+                    return
+                if path != "/api/tasks":
+                    self._json(404, {"error": "Rota não encontrada."})
+                    return
                 prompt = str(body.get("prompt", "")).strip()
                 if not prompt or len(prompt) > MAX_PROMPT:
                     raise ValueError("Informe uma tarefa de 1 a 20.000 caracteres.")
@@ -229,13 +247,21 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
 def main():
     host = os.environ.get("KELLY_API_HOST", "127.0.0.1")
     if host not in {"127.0.0.1", "::1", "localhost"}:
-        raise SystemExit("Por segurança, a API só pode escutar em localhost nesta versão.")
+        if os.environ.get("KELLY_ALLOW_REMOTE") != "1":
+            raise SystemExit("Acesso remoto desativado. Para publicar atrás de HTTPS, defina KELLY_ALLOW_REMOTE=1.")
+        if host not in {"0.0.0.0", "::"}:
+            raise SystemExit("Para acesso remoto, use KELLY_API_HOST=0.0.0.0 ou ::.")
     token = os.environ.get("KELLY_API_TOKEN", "")
     if len(token) < 32:
         raise SystemExit("Defina KELLY_API_TOKEN com pelo menos 32 caracteres.")
     root = Path(os.environ.get("OVEROS_PROJECT_ROOT", str(Path.cwd()))).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
-    executor = load_executor()
+    try:
+        executor = load_executor()
+    except RuntimeError as exc:
+        print(f"[kelly-api] Aviso: {exc}")
+        def executor(task, emit, cancelled):
+            raise RuntimeError("Motor Kelly Code não conectado. Configure KELLY_EXECUTOR para habilitar tarefas de código.")
     coordinator = TaskCoordinator(executor)
     server = ThreadingHTTPServer((host, int(os.environ.get("KELLY_API_PORT", "8765"))),
                                  make_handler(coordinator, token, root))

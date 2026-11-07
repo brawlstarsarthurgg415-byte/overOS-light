@@ -2,7 +2,7 @@
 # Verificações rápidas do instalador híbrido (shell + Python embutido).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INSTALLER="$ROOT/instalar-overia-code-v1_6.sh"
+INSTALLER="$ROOT/instalar-overia-code-v1_7.sh"
 
 # O instalador é híbrido: valida somente o cabeçalho como Bash.
 awk '$0 == "#__OVERIA_PY_INICIO__" { exit } { print }' "$INSTALLER" | bash -n
@@ -18,12 +18,14 @@ header, engine = source.split(marker, 1)
 compile(engine, str(p) + ":engine", "exec")
 checks = {
     "cabeçalho híbrido preservado": header.rstrip().endswith("exit 0"),
-    "versão 1.6 preservada": 'VERSAO = "1.6"' in engine,
+    "versão 1.7 preservada": 'VERSAO = "1.7"' in engine,
     "confirmação de comandos": "def confirma(" in engine,
     "execução de comandos": "def executa(" in engine,
     "conversa em etapas": "def turno(" in engine,
     "seleção de modelos": "def escolhe_modelo(" in engine,
     "integração Gemini": "def usa_gemini(" in engine,
+    "painel de status": "def mostra_status(" in engine,
+    "atualização online": "instalar-overia-code.sh" in engine,
 }
 failed = [name for name, ok in checks.items() if not ok]
 for name, ok in checks.items():

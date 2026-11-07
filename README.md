@@ -121,3 +121,10 @@ para conferir o que funcionou de verdade no i30.
 - Atualizar o kernel dentro do sistema funciona (o GRUB usa `/vmlinuz` e `/initrd.img`), mas não há instalador nem atualização do GRUB.
 - A entrada de teste de RAM do GRUB (memtest86+) pode precisar de ajuste; o teste `memtester` do menu funciona independentemente.
 - Wi-Fi Broadcom: o firmware `b43` é baixado na hora de gerar a imagem. Se falhar, aparece em `work/avisos.txt`.
+
+
+## OverCode / Kelly
+
+- Instalador do terminal atualizado: [`instalar-overia-code-v1_7.sh`](instalar-overia-code-v1_7.sh) (também disponível em [`instalar-overia-code.sh`](instalar-overia-code.sh)).
+- API e configuração dos provedores: [`docs/OVERCODE-CLOUD-API.md`](docs/OVERCODE-CLOUD-API.md).
+- A interface web inclui Configurações para Gemini e APIs compatíveis com OpenAI. As chaves ficam no servidor, nunca no código do app/site.

@@ -55,7 +55,8 @@
       await followTask(result.id,token);
     }catch(error){eventCard({title:"Não foi possível executar",detail:error.message,kind:"info"});$("taskSubtitle").textContent="API indisponível ou executor não configurado";addMessage("assistant","Não consegui iniciar a tarefa pela API local: "+error.message+". Verifique se a Kelly API está ativa e se o adaptador do motor foi configurado.")}
   }
-  function send(){const value=prompt.value.trim();if(!value)return;addMessage("user",value);prompt.value="";prompt.style.height="auto";if(/@code|crie|criar|projeto|implemente|program|corrija|corrigir|instale|construa|desenvolva|site|aplicativo|configure|analise o repositório|execute os testes/i.test(value)){submitTask(value)}else{addMessage("assistant","A Kelly Light ainda precisa ser ligada a um modelo de conversa. Para tarefas de código e alterações no projeto, peça explicitamente a implementação e eu encaminho para a Kelly Code pela API local.")}}
+  async function chatWithKelly(message){const token=apiToken();if(!token){notify("Configure o token da Kelly API em Configurações.");return}try{const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({message})});const d=await r.json();if(!r.ok)throw new Error(d.error||("HTTP "+r.status));addMessage("assistant",d.answer||"Sem resposta do provedor.")}catch(e){addMessage("assistant","Falha na conversa: "+e.message+". Confira a API Key em Configurações.")}}
+  function send(){const value=prompt.value.trim();if(!value)return;addMessage("user",value);prompt.value="";prompt.style.height="auto";if(/@code|crie|criar|projeto|implemente|program|corrija|corrigir|instale|construa|desenvolva|site|aplicativo|configure|analise o repositório|execute os testes/i.test(value)){submitTask(value)}else{chatWithKelly(value)}}
   $("sendButton").addEventListener("click",send);
   prompt.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
   prompt.addEventListener("input",()=>{prompt.style.height="auto";prompt.style.height=Math.min(prompt.scrollHeight,130)+"px"});
@@ -66,5 +67,4 @@
   $("openSidebar").addEventListener("click",()=>$("sidebar").classList.add("open"));
   $("closeSidebar").addEventListener("click",()=>$("sidebar").classList.remove("open"));
   $("voiceButton").addEventListener("click",()=>notify("Microfone e síntese de voz serão conectados ao serviço Kelly Live."));
-  $("modelSelect").addEventListener("click",()=>notify("Seletor de modelos será conectado à família Kelly."));
 })();
