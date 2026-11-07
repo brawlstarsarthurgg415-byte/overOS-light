@@ -19,8 +19,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: overos-v2-image-${{ github.ref }}-${{ github.sha }}
-  cancel-in-progress: false
+  group: overos-v2-image-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-image:
@@ -322,10 +322,10 @@ jobs:
           sudo apt-get install -y zip
           mkdir -p package/Meu-OverOS-V2
           cp package/system/overos-lite-v2.img.xz package/Meu-OverOS-V2/
-          cp package/system/overos-lite-v2.img package/OverOS-Pair-V2/
-          cp package/android/app-debug.apk package/OverOS-Pair-V2/Meu-OverOS-2.9-debug.apk
-          cp package/system/qemu-boot.log package/OverOS-Pair-V2/
-          (cd package/Meu-OverOS-V2 && sha256sum overos-lite-v2.img overos-lite-v2.img.xz OverOS-Control-2.8-debug.apk > SHA256SUMS.txt)
+          cp package/system/overos-lite-v2.img package/Meu-OverOS-V2/
+          cp package/android/app-debug.apk package/Meu-OverOS-V2/Meu-OverOS-2.9-debug.apk
+          cp package/system/qemu-boot.log package/Meu-OverOS-V2/
+          (cd package/Meu-OverOS-V2 && sha256sum overos-lite-v2.img overos-lite-v2.img.xz Meu-OverOS-2.9-debug.apk > SHA256SUMS.txt)
           cd package
           zip -r Meu-OverOS-e-Sistema-V2.zip Meu-OverOS-V2
       - name: Publicar pacote combinado
