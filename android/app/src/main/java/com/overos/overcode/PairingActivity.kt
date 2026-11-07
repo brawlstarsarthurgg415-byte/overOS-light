@@ -30,6 +30,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.LocalFocusManager
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +76,8 @@ class PairingActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            val focusManager = LocalFocusManager.current
+            var keyboardEditing by remember { mutableStateOf(false) }
             var stage by remember { mutableStateOf("scan") }
             var session by remember { mutableStateOf<PairSession?>(null) }
             var code by remember { mutableStateOf("") }
@@ -129,7 +140,21 @@ class PairingActivity : ComponentActivity() {
                 primary = pairAccent
             )) {
                 Column(
-                    Modifier.fillMaxSize().background(pairBackground).padding(22.dp),
+                    Modifier.fillMaxSize().background(pairBackground).padding(22.dp)
+                        .onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        if (keyboardEditing) return@onPreviewKeyEvent false
+                        when (event.key) {
+                            Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
+                            Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
+                            Key.DirectionLeft -> focusManager.moveFocus(FocusDirection.Left)
+                            Key.DirectionRight -> focusManager.moveFocus(FocusDirection.Right)
+                            Key.Tab -> focusManager.moveFocus(
+                                if (event.isShiftPressed) FocusDirection.Previous else FocusDirection.Next
+                            )
+                            else -> false
+                        }
+                    },
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -173,7 +198,7 @@ class PairingActivity : ComponentActivity() {
                                     label = { Text("Código do computador") },
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth().onFocusChanged { keyboardEditing = it.isFocused }
                                 )
                                 Button(
                                     onClick = {
