@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title">
+  <title id="title">Símbolo OverOS</title>
+  <defs><linearGradient id="orb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8bd7ff"/><stop offset=".55" stop-color="#2588e8"/><stop offset="1" stop-color="#0750b5"/></linearGradient></defs>
+  <circle cx="80" cy="80" r="72" fill="#fff"/>
+  <circle cx="80" cy="80" r="52" fill="url(#orb)"/>
+  <path d="M44 67c16-27 49-35 72-20" fill="none" stroke="#d9f4ff" stroke-width="9" stroke-linecap="round" opacity=".85"/>
+</svg>

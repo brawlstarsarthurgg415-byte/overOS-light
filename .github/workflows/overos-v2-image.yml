@@ -1,0 +1,144 @@
+name: OverOS V2 - Gerar imagem IMG
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_version:
+        description: "Versão do kernel Linux"
+        required: true
+        default: "6.12.1"
+  push:
+    branches:
+      - overos-lite-v2
+    paths:
+      - "v2/**"
+      - ".github/workflows/overos-v2-image.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: overos-v2-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-image:
+    name: Compilar imagem inicializável V2 (experimental)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Baixar código da V2
+        uses: actions/checkout@v4
+        with:
+          ref: overos-lite-v2
+
+      - name: Instalar ferramentas de compilação
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc bison flex libssl-dev libelf-dev \
+            cpio xz-utils wget curl git grub-pc-bin parted e2fsprogs \
+            qemu-system-x86 busybox-static
+
+      - name: Compilar kernel Linux x86_64
+        env:
+          KERNEL_VERSION: ${{ inputs.kernel_version || '6.12.1' }}
+        run: |
+          set -eux
+          wget -q "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz"
+          tar -xf "linux-${KERNEL_VERSION}.tar.xz"
+          cd "linux-${KERNEL_VERSION}"
+          make x86_64_defconfig
+          scripts/config --enable BLK_DEV_INITRD
+          scripts/config --enable DEVTMPFS
+          scripts/config --enable DEVTMPFS_MOUNT
+          scripts/config --enable EXT4_FS
+          make olddefconfig
+          make -j2 bzImage
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp arch/x86/boot/bzImage "$GITHUB_WORKSPACE/out/vmlinuz"
+
+      - name: Montar initramfs mínimo OverOS com marca e Fastfetch
+        run: |
+          set -eux
+          ROOT="$RUNNER_TEMP/overos-root"
+          mkdir -p "$ROOT"/{bin,sbin,etc,proc,sys,dev,run,tmp,root,usr/bin,usr/share/overos}
+          chmod 1777 "$ROOT/tmp"
+          cp /bin/busybox "$ROOT/bin/busybox"
+          for app in sh mount mkdir sleep uname free df cat clear reboot poweroff hostname; do
+            ln -sf busybox "$ROOT/bin/$app"
+          done
+          cp v2/branding/fastfetch.sh "$ROOT/bin/fastfetch"
+          cp v2/branding/overos-logo-horizontal.svg "$ROOT/usr/share/overos/overos-logo.svg"
+          cat > "$ROOT/init" <<'INIT'
+          #!/bin/sh
+          mount -t proc proc /proc
+          mount -t sysfs sysfs /sys
+          mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+          mount -t tmpfs tmpfs /run
+          hostname OverOS
+          clear
+          /bin/fastfetch
+          echo
+          echo "Bem-vindo ao OverOS Lite V2"
+          echo "Ambiente experimental de inicializacao."
+          echo "Digite 'fastfetch' para ver as informacoes do sistema."
+          exec /bin/sh
+          INIT
+          chmod +x "$ROOT/init"
+          mkdir -p out
+          (cd "$ROOT" && find . -print0 | cpio --null -o --format=newc 2>/dev/null | gzip -9) > out/overos-initramfs.cpio.gz
+
+      - name: Criar disco raw inicializável para BIOS Legacy
+        run: |
+          set -eux
+          IMG="$GITHUB_WORKSPACE/out/overos-lite-v2.img"
+          truncate -s 256M "$IMG"
+          parted -s "$IMG" mklabel msdos
+          parted -s "$IMG" mkpart primary ext2 1MiB 100%
+          parted -s "$IMG" set 1 boot on
+          LOOP=$(sudo losetup --find --show --partscan "$IMG")
+          cleanup() { sudo umount "$RUNNER_TEMP/overos-mnt" 2>/dev/null || true; sudo losetup -d "$LOOP" 2>/dev/null || true; }
+          trap cleanup EXIT
+          sudo mkfs.ext2 -F "${LOOP}p1"
+          sudo mkdir -p "$RUNNER_TEMP/overos-mnt"
+          sudo mount "${LOOP}p1" "$RUNNER_TEMP/overos-mnt"
+          sudo mkdir -p "$RUNNER_TEMP/overos-mnt/boot/grub"
+          sudo cp out/vmlinuz "$RUNNER_TEMP/overos-mnt/boot/vmlinuz"
+          sudo cp out/overos-initramfs.cpio.gz "$RUNNER_TEMP/overos-mnt/boot/initramfs.cpio.gz"
+          sudo tee "$RUNNER_TEMP/overos-mnt/boot/grub/grub.cfg" > /dev/null <<'GRUB'
+          set timeout=5
+          set default=0
+          menuentry "OverOS Lite V2 (experimental)" {
+            linux /boot/vmlinuz console=tty0 loglevel=4
+            initrd /boot/initramfs.cpio.gz
+          }
+          GRUB
+          sudo grub-install --target=i386-pc --boot-directory="$RUNNER_TEMP/overos-mnt/boot" --recheck "$LOOP"
+          sync
+          sudo umount "$RUNNER_TEMP/overos-mnt"
+          sudo losetup -d "$LOOP"
+          trap - EXIT
+          xz -T0 -z -k "$IMG"
+          sha256sum "$IMG" "$IMG.xz" > out/SHA256SUMS.txt
+
+      - name: Testar inicialização em QEMU
+        run: |
+          set +e
+          timeout 25s qemu-system-x86_64 -m 512 -kernel out/vmlinuz \
+            -initrd out/overos-initramfs.cpio.gz -nographic -no-reboot \
+            -append "console=ttyS0" > out/qemu-boot.log 2>&1
+          set -e
+          grep -q "Bem-vindo ao OverOS Lite V2" out/qemu-boot.log
+
+      - name: Publicar arquivos para download
+        uses: actions/upload-artifact@v4
+        with:
+          name: OverOS-V2-IMG-experimental
+          path: |
+            out/overos-lite-v2.img
+            out/overos-lite-v2.img.xz
+            out/SHA256SUMS.txt
+            out/qemu-boot.log
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
