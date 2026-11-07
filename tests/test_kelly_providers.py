@@ -53,5 +53,32 @@ class ProviderConfigTests(unittest.TestCase):
                 self.assertEqual(json.loads(path.read_text())["api_key"], "")
 
 
+    def test_openai_compatible_provider_receives_history(self):
+        cfg = {"provider":"openai-compatible","model":"gpt-4o-mini","base_url":"https://api.openai.com/v1","api_key":"secret"}
+        response = {"choices":[{"message":{"content":"resposta"}}]}
+        with patch.object(providers, "_read", return_value=cfg), patch.object(providers, "_request", return_value=response) as request:
+            answer = providers.complete("segunda pergunta", "Kelly", [
+                {"role":"user","content":"primeira pergunta"},
+                {"role":"assistant","content":"primeira resposta"},
+            ])
+        self.assertEqual(answer, "resposta")
+        sent = request.call_args.args[1]["messages"]
+        self.assertEqual([m["role"] for m in sent], ["system","user","assistant","user"])
+        self.assertEqual(sent[-2]["content"], "primeira resposta")
+
+    def test_gemini_provider_uses_model_role_for_assistant_history(self):
+        cfg = {"provider":"gemini","model":"gemini-2.5-flash","api_key":"secret"}
+        response = {"candidates":[{"content":{"parts":[{"text":"resposta"}]}}]}
+        with patch.object(providers, "_read", return_value=cfg), patch.object(providers, "_request", return_value=response) as request:
+            answer = providers.complete("nova pergunta", "Kelly", [
+                {"role":"user","content":"oi"},
+                {"role":"assistant","content":"olá"},
+            ])
+        self.assertEqual(answer, "resposta")
+        payload = request.call_args.args[1]
+        self.assertEqual(payload["contents"][1]["role"], "model")
+        self.assertIn("systemInstruction", payload)
+
+
 if __name__ == "__main__":
     unittest.main()
