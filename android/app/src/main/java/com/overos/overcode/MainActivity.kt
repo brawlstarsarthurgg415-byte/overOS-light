@@ -396,14 +396,17 @@ class MainActivity : ComponentActivity() {
                         onDismissRequest = { showFiles = false },
                         title = { Text("Arquivos do OverCode") },
                         text = {
-                            Column {
-                                if (remoteFiles.isEmpty()) Text("Ainda não há arquivos enviados ou gerados.")
-                                remoteFiles.forEach { file ->
-                                    TextButton(onClick = {
-                                        downloadTarget = file
-                                        showFiles = false
-                                        downloadPicker.launch(file.name)
-                                    }) { Text("↓ ${file.name} · ${(file.size / 1024).toInt()} KB") }
+                            if (remoteFiles.isEmpty()) {
+                                Text("Ainda não há arquivos enviados ou gerados.")
+                            } else {
+                                LazyColumn(Modifier.heightIn(max = 400.dp)) {
+                                    items(remoteFiles) { file ->
+                                        TextButton(onClick = {
+                                            downloadTarget = file
+                                            showFiles = false
+                                            downloadPicker.launch(file.name)
+                                        }) { Text("↓ ${file.name} · ${(file.size / 1024).toInt()} KB") }
+                                    }
                                 }
                             }
                         },
