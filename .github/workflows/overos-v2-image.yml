@@ -273,7 +273,7 @@ jobs:
           retention-days: 14
 
   build-apk:
-    name: Compilar APK OverOS Control 2.8
+    name: Compilar APK Meu OverOS 2.9
     runs-on: ubuntu-24.04
     steps:
       - name: Baixar código
@@ -295,7 +295,7 @@ jobs:
       - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
-          name: OverOS-Control-APK
+          name: Meu-OverOS-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -320,18 +320,18 @@ jobs:
           set -eux
           sudo apt-get update
           sudo apt-get install -y zip
-          mkdir -p package/OverOS-Pair-V2
-          cp package/system/overos-lite-v2.img.xz package/OverOS-Pair-V2/
+          mkdir -p package/Meu-OverOS-V2
+          cp package/system/overos-lite-v2.img.xz package/Meu-OverOS-V2/
           cp package/system/overos-lite-v2.img package/OverOS-Pair-V2/
-          cp package/android/app-debug.apk package/OverOS-Pair-V2/OverOS-Control-2.8-debug.apk
+          cp package/android/app-debug.apk package/OverOS-Pair-V2/Meu-OverOS-2.9-debug.apk
           cp package/system/qemu-boot.log package/OverOS-Pair-V2/
-          (cd package/OverOS-Pair-V2 && sha256sum overos-lite-v2.img overos-lite-v2.img.xz OverOS-Control-2.8-debug.apk > SHA256SUMS.txt)
+          (cd package/Meu-OverOS-V2 && sha256sum overos-lite-v2.img overos-lite-v2.img.xz OverOS-Control-2.8-debug.apk > SHA256SUMS.txt)
           cd package
-          zip -r OverOS-Pair-V2.zip OverOS-Pair-V2
+          zip -r Meu-OverOS-e-Sistema-V2.zip Meu-OverOS-V2
       - name: Publicar pacote combinado
         uses: actions/upload-artifact@v4
         with:
-          name: OverOS-Pair-V2-completo
-          path: package/OverOS-Pair-V2.zip
+          name: Meu-OverOS-e-Sistema-V2
+          path: package/Meu-OverOS-e-Sistema-V2.zip
           if-no-files-found: error
           retention-days: 14
