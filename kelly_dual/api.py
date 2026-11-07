@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import mimetypes
 import os
 import secrets
 import threading
@@ -88,6 +89,30 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
 
         def do_GET(self):
             path = urlparse(self.path).path
+            static_files = {
+                "/": "index.html",
+                "/index.html": "index.html",
+                "/styles.css": "styles.css",
+                "/app.js": "app.js",
+            }
+            if path in static_files:
+                ui_root = (Path(__file__).resolve().parent.parent / "ui").resolve()
+                target = (ui_root / static_files[path]).resolve()
+                if ui_root not in target.parents:
+                    self._json(403, {"error": "Caminho inválido."})
+                    return
+                try:
+                    raw = target.read_bytes()
+                except OSError:
+                    self._json(404, {"error": "Arquivo da interface não encontrado."})
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", mimetypes.guess_type(str(target))[0] or "application/octet-stream")
+                self.send_header("Content-Length", str(len(raw)))
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                self.wfile.write(raw)
+                return
             if path == "/api/health":
                 self._json(200, {
                     "ok": True,
