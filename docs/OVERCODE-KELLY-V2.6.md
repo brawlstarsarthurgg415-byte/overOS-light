@@ -164,7 +164,7 @@ Treinar um modelo fundamental do zero não é o primeiro passo: exige escala de 
 
 ### Estado
 
-A família de modelos, a arquitetura Dual Intelligence e o manual são especificações de projeto. Nenhum novo peso Kelly, ajuste fino, runtime móvel, orquestrador dual ou pipeline de voz está implementado ou validado apenas por constar neste documento.
+A família de modelos, a arquitetura Dual Intelligence e o manual são especificações de projeto. Existe agora um primeiro pacote isolado `kelly_dual` com fila SQLite persistente, eventos, cancelamento cooperativo e recuperação de tarefas, coberto por testes automatizados. Ele ainda não está ligado ao motor Overcode v1.6, a endpoints de inferência, à interface, nem a clientes Android. Nenhum peso Kelly foi treinado ou baixado; ajuste fino, runtime móvel, seleção por benchmark no S23+ e pipeline de voz continuam pendentes.
 
 ## Direção visual inicial
 
