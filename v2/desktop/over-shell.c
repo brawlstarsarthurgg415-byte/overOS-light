@@ -1,0 +1,154 @@
+/*
+ * OverOS Shell — interface framebuffer nativa, sem X11/Wayland.
+ * Protótipo gráfico real: desenha diretamente em /dev/fb0 e recebe teclas
+ * no terminal virtual. Não depende de navegador nem de compositor 3D.
+ */
+#define _GNU_SOURCE
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/fb.h>
+#include <linux/kd.h>
+#include <poll.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <termios.h>
+#include <unistd.h>
+
+static int fb=-1, tty=-1, W=0,H=0,bpp=0;
+static long mapsz=0;
+static uint8_t *mem;
+static struct fb_var_screeninfo vi;
+static struct fb_fix_screeninfo fi;
+static struct termios oldt;
+static int old_graphics=0, page=0, selected=0;
+
+static uint32_t rgb(uint8_t r,uint8_t g,uint8_t b) {
+  uint32_t v=0;
+  v |= ((uint32_t)r >> (8-vi.red.length)) << vi.red.offset;
+  v |= ((uint32_t)g >> (8-vi.green.length)) << vi.green.offset;
+  v |= ((uint32_t)b >> (8-vi.blue.length)) << vi.blue.offset;
+  if(vi.transp.length) v |= ((1u<<vi.transp.length)-1u)<<vi.transp.offset;
+  return v;
+}
+static void pixel(int x,int y,uint32_t c) {
+  if(x<0||y<0||x>=W||y>=H) return;
+  long o=(long)y*fi.line_length+(long)x*(bpp/8);
+  if(o<0||o+(bpp/8)>mapsz) return;
+  if(bpp==32) *(uint32_t*)(mem+o)=c;
+  else if(bpp==24) { mem[o]=c&255; mem[o+1]=(c>>8)&255; mem[o+2]=(c>>16)&255; }
+  else if(bpp==16) *(uint16_t*)(mem+o)=(uint16_t)c;
+}
+static void rect(int x,int y,int w,int h,uint32_t c) {
+  if(w<1||h<1)return;
+  for(int yy=y;yy<y+h;yy++) for(int xx=x;xx<x+w;xx++) pixel(xx,yy,c);
+}
+static void roundrect(int x,int y,int w,int h,int r,uint32_t c) {
+  for(int yy=0;yy<h;yy++) for(int xx=0;xx<w;xx++) {
+    int dx=xx<r?r-xx-1:(xx>=w-r?xx-(w-r):0);
+    int dy=yy<r?r-yy-1:(yy>=h-r?yy-(h-r):0);
+    if((xx>=r&&xx<w-r)||(yy>=r&&yy<h-r)||dx*dx+dy*dy<=r*r)
+      pixel(x+xx,y+yy,c);
+  }
+}
+static const uint8_t *glyph(char c) {
+  static const uint8_t blank[7]={0};
+  static const uint8_t f[36][7]={
+  {14,17,17,31,17,17,17},{30,17,17,30,17,17,30},{14,17,16,16,16,17,14},
+  {30,17,17,17,17,17,30},{31,16,16,30,16,16,31},{31,16,16,30,16,16,16},
+  {14,17,16,23,17,17,15},{17,17,17,31,17,17,17},{14,4,4,4,4,4,14},
+  {7,2,2,2,18,18,12},{17,18,20,24,20,18,17},{16,16,16,16,16,16,31},
+  {17,27,21,21,17,17,17},{17,25,21,19,17,17,17},{14,17,17,17,17,17,14},
+  {30,17,17,30,16,16,16},{14,17,17,17,21,18,13},{30,17,17,30,20,18,17},
+  {15,16,16,14,1,1,30},{31,4,4,4,4,4,4},{17,17,17,17,17,17,14},
+  {17,17,17,17,17,10,4},{17,17,17,21,21,21,10},{17,17,10,4,10,17,17},
+  {17,17,10,4,4,4,4},{31,1,2,4,8,16,31},
+  {14,17,19,21,25,17,14},{4,12,4,4,4,4,14},{14,17,1,2,4,8,31},
+  {30,1,1,14,1,1,30},{2,6,10,18,31,2,2},{31,16,16,30,1,1,30},
+  {14,16,16,30,17,17,14},{31,1,2,4,8,8,8},{14,17,17,14,17,17,14},
+  {14,17,17,15,1,1,14}
+  };
+  if(c>='a'&&c<='z') c-=32;
+  if(c>='A'&&c<='Z')return f[c-'A'];
+  if(c>='0'&&c<='9')return f[26+c-'0'];
+  return blank;
+}
+static void text(int x,int y,const char *s,int scale,uint32_t color) {
+  for(;*s;s++,x+=6*scale) {
+    const uint8_t *g=glyph(*s);
+    for(int yy=0;yy<7;yy++) for(int xx=0;xx<5;xx++)
+      if(g[yy]&(1<<(4-xx))) rect(x+xx*scale,y+yy*scale,scale,scale,color);
+  }
+}
+static void cleanup(void) {
+  if(tty>=0) { tcsetattr(tty,TCSAFLUSH,&oldt); if(old_graphics) ioctl(tty,KDSETMODE,KD_TEXT); }
+  if(mem&&mem!=MAP_FAILED) munmap(mem,mapsz);
+  if(fb>=0)close(fb); if(tty>=0)close(tty);
+}
+static void draw(void) {
+  uint32_t bg=rgb(8,12,24), panel=rgb(17,25,43), card=rgb(25,37,60);
+  uint32_t white=rgb(235,243,255), muted=rgb(135,157,187), blue=rgb(48,139,255);
+  rect(0,0,W,H,bg);
+  for(int y=0;y<H;y+=1) { int v=18+(y*14/(H?H:1)); rect(0,y,W,1,rgb(7,v,25+v)); }
+  roundrect(18,16,W-36,48,14,panel);
+  roundrect(32,28,20,20,10,blue); text(60,31,"OVEROS",2,white);
+  text(W-210,34,"LITE V2",1,muted);
+  int side= W<700?150:190;
+  roundrect(18,78,side,H-96,16,panel);
+  text(38,100,"WORKSPACE",1,muted);
+  const char *nav[]={"HOME","APPS","FILES","SETTINGS","SYSTEM"};
+  for(int i=0;i<5;i++) {
+    int yy=130+i*48;
+    if(page==i) roundrect(28,yy-9,side-20,36,9,rgb(34,75,126));
+    roundrect(40,yy,8,8,4,i==page?blue:muted);
+    text(60,yy,nav[i],1,i==page?white:muted);
+  }
+  int x=side+42, cw=W-x-38;
+  text(x,98,page==0?"WELCOME TO OVEROS":nav[page],2,white);
+  text(x,126,"YOUR COMPUTER, YOUR WAY",1,muted);
+  int gap=14, cardw=(cw-gap)/2; if(cardw<120)cardw=cw;
+  int y=164, ch=112;
+  const char *titles[]={"OVER STORE","OVER BROWSER","OVER FILES","OVER SETTINGS"};
+  const char *subs[]={"Discover your apps","Explore the web","Your local documents","Make it yours"};
+  for(int i=0;i<4;i++) {
+    int xx=x+(i%2)*(cardw+gap), yy=y+(i/2)*(ch+gap);
+    roundrect(xx,yy,cardw,ch,14,card);
+    roundrect(xx+14,yy+14,34,34,10,i==selected?blue:rgb(45,74,111));
+    text(xx+62,yy+20,titles[i],1,white);
+    text(xx+62,yy+42,subs[i],1,muted);
+    text(xx+16,yy+78,i==selected?"SELECTED":"OPEN WITH ENTER",1,i==selected?blue:muted);
+  }
+  int dockw=260; if(dockw>W-40)dockw=W-40;
+  roundrect((W-dockw)/2,H-58,dockw,42,14,panel);
+  text((W-dockw)/2+18,H-43,"1 HOME   2 APPS   3 FILES   4 SETTINGS",1,white);
+  text(22,H-20,"ARROWS: MOVE    ENTER: OPEN    Q: EXIT",1,muted);
+}
+int main(void) {
+  fb=open("/dev/fb0",O_RDWR);
+  if(fb<0){ dprintf(2,"OverOS Shell: /dev/fb0 indisponivel: %s\n",strerror(errno)); return 2; }
+  if(ioctl(fb,FBIOGET_FSCREENINFO,&fi)||ioctl(fb,FBIOGET_VSCREENINFO,&vi)){dprintf(2,"OverOS Shell: framebuffer invalido\n");return 2;}
+  W=vi.xres; H=vi.yres; bpp=vi.bits_per_pixel; mapsz=fi.smem_len;
+  if(W<320||H<200||(bpp!=16&&bpp!=24&&bpp!=32)){dprintf(2,"OverOS Shell: modo grafico nao suportado (%dx%d %dbpp)\n",W,H,bpp);return 2;}
+  mem=mmap(NULL,mapsz,PROT_READ|PROT_WRITE,MAP_SHARED,fb,0);
+  if(mem==MAP_FAILED){dprintf(2,"OverOS Shell: mmap falhou\n");return 2;}
+  tty=open("/dev/tty0",O_RDWR|O_NOCTTY);
+  if(tty>=0){ioctl(tty,KDGETMODE,&old_graphics);ioctl(tty,KDSETMODE,KD_GRAPHICS);}
+  if(tcgetattr(STDIN_FILENO,&oldt)==0){struct termios raw=oldt;raw.c_lflag&=~(ICANON|ECHO);raw.c_cc[VMIN]=0;raw.c_cc[VTIME]=1;tcsetattr(STDIN_FILENO,TCSAFLUSH,&raw);}
+  draw();
+  for(;;){
+    struct pollfd p={STDIN_FILENO,POLLIN,0}; if(poll(&p,1,250)>0&&p.revents&POLLIN){
+      unsigned char c; if(read(STDIN_FILENO,&c,1)==1){
+        if(c=='q'||c=='Q'||c==27)break;
+        if(c>='1'&&c<='5'){page=c-'1';selected=0;}
+        if(c==' '||c=='\r'||c=='\n') { if(page==0)page=1; }
+        if(c=='\t'||c=='j'||c=='J'||c==']')selected=(selected+1)%4;
+        if(c=='k'||c=='K'||c=='[')selected=(selected+3)%4;
+      }
+      draw();
+    }
+  }
+  cleanup(); return 0;
+}
