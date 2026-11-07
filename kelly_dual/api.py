@@ -15,12 +15,12 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, unquote, urlparse
 from typing import Callable
 
 from .orchestrator import TaskCoordinator, Task, TaskEvent, should_delegate_to_code
 from . import providers
-from .file_store import delete_upload, get_upload, list_uploads, readable_text, save_upload
+from .file_store import delete_upload, get_project_file, get_upload, list_project_files, list_uploads, readable_text, save_upload
 from .sessions import SessionStore, run_slash_command
 
 MAX_BODY = 12 * 1024 * 1024
@@ -129,6 +129,24 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                 return
             if not self._authorized():
                 return
+            if path == "/api/project-files":
+                self._json(200, {"files": list_project_files(root)})
+                return
+            if path.startswith("/api/project-files/"):
+                relative = unquote(path[len("/api/project-files/"):])
+                found = get_project_file(root, relative)
+                if not found:
+                    self._json(404, {"error": "Arquivo de projeto não encontrado ou excede o limite de download."})
+                    return
+                target, raw = found
+                self.send_response(200)
+                self.send_header("Content-Type", mimetypes.guess_type(str(target))[0] or "application/octet-stream")
+                self.send_header("Content-Length", str(len(raw)))
+                self.send_header("Content-Disposition", "attachment; filename*=UTF-8''" + quote(target.name))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(raw)
+                return
             if path == "/api/files":
                 self._json(200, {"files": list_uploads(root)})
                 return
@@ -156,7 +174,7 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                     "files": {"upload": True, "download": True, "max_bytes": 8 * 1024 * 1024},
                     "provider": {"name": cfg.get("provider"), "model": cfg.get("model"), "configured": cfg.get("has_api_key", False)},
                     "executor_configured": bool(os.environ.get("KELLY_EXECUTOR")),
-                    "tools": ["chat", "task_queue", "task_events", "session_history", "file_upload", "file_download", "provider_settings", "health_status"]
+                    "tools": ["chat", "task_queue", "task_events", "session_history", "file_upload", "file_download", "project_file_list", "project_file_download", "provider_settings", "health_status"]
                 })
                 return
             if path == "/api/sessions":
