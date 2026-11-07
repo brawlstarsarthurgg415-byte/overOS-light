@@ -197,8 +197,8 @@ def main():
         else: print("Ainda não há logs.")
     elif cmd=="update":
         stop()
-        subprocess.run(["git","-C",str(APP),"pull","--ff-only","origin","overcode-2.7-agent-core"],check=True)
-        print("[OverCode] Código atualizado. Reiniciando a API…")
+        subprocess.run(["bash",str(APP/"instalar-overcode-termux.sh")],check=True)
+        print("[OverCode] Instalação atualizada. Reiniciando a API…")
         start()
     elif cmd in ("help","--help","-h"):
         print("Uso: overcode [start|stop|status|logs|update|help]\nSem argumento: abre o chat com Kelly.")
