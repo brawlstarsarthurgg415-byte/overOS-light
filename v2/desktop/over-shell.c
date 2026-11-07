@@ -181,6 +181,33 @@ static int save_setup(const char *username,int mode,int pair) {
   return 0;
 }
 
+
+static void run_pair_screen(int *pair) {
+  const char *state_file="/mnt/overos-data/overos-data/pair/paired-devices.json";
+  if(access("/usr/bin/over-pair",X_OK)!=0) {
+    if(tty>=0)ioctl(tty,KDSETMODE,KD_TEXT);
+    tcsetattr(STDIN_FILENO,TCSAFLUSH,&oldt);
+    printf("\nPareamento do celular indisponivel nesta inicializacao.\n");
+    printf("Pressione Enter para continuar...");
+    (void)getchar();
+  } else {
+    if(tty>=0)ioctl(tty,KDSETMODE,KD_TEXT);
+    tcsetattr(STDIN_FILENO,TCSAFLUSH,&oldt);
+    (void)system("/usr/bin/over-pair serve --state-dir /mnt/overos-data/overos-data/pair >/run/over-pair.log 2>&1 & echo $! >/run/over-pair.pid");
+    sleep(2);
+    (void)system("/usr/bin/over-pair screen");
+    if(access(state_file,F_OK)==0) *pair=1;
+    else (void)system("kill $(cat /run/over-pair.pid) 2>/dev/null || true");
+    printf("\n%s\n",*pair?"Celular conectado ao OverOS!":"Pareamento ignorado. Continuando...");
+  }
+  struct termios raw=oldt;
+  raw.c_lflag&=~(ICANON|ECHO);
+  raw.c_cc[VMIN]=0;
+  raw.c_cc[VTIME]=1;
+  tcsetattr(STDIN_FILENO,TCSAFLUSH,&raw);
+  if(tty>=0)ioctl(tty,KDSETMODE,KD_GRAPHICS);
+}
+
 static int run_setup(void) {
   char username[33]="over";
   int stage=0,mode=0,pair=0;
@@ -208,10 +235,13 @@ static int run_setup(void) {
       else if(c=='1'){mode=0;stage=2;}
       else if(c=='2'){mode=1;stage=2;}
       else if(c=='3'){mode=2;stage=2;}
-      else if(c=='\r'||c=='\n'||c==' ') stage=2;
-    } else {
-      if(c=='y'||c=='Y'){pair=1;if(save_setup(username,mode,pair)<0)return 1;break;}
-      if(c=='n'||c=='N'){pair=0;if(save_setup(username,mode,pair)<0)return 1;break;}
+      else if(c=='\r'||c=='\n'||c==' ') {
+        pair=0;
+        if(save_setup(username,mode,pair)<0)return 1;
+        run_pair_screen(&pair);
+        if(save_setup(username,mode,pair)<0)return 1;
+        break;
+      }
     }
   }
   draw_setup(3,username,mode,pair);
