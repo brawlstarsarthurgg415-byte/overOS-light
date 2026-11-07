@@ -89,6 +89,8 @@ jobs:
         run: |
           set -eux
           cd v2/pair
+          gofmt -w main.go main_test.go
+          go mod verify
           CGO_ENABLED=0 go test ./...
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$GITHUB_WORKSPACE/out/over-pair" .
           file "$GITHUB_WORKSPACE/out/over-pair"
@@ -312,6 +314,8 @@ jobs:
       - name: Criar pacote único
         run: |
           set -eux
+          sudo apt-get update
+          sudo apt-get install -y zip
           mkdir -p package/OverOS-Pair-V2
           cp package/system/overos-lite-v2.img.xz package/OverOS-Pair-V2/
           cp package/system/overos-lite-v2.img package/OverOS-Pair-V2/
