@@ -32,7 +32,7 @@
         if(data.stdout||data.stderr)output=[data.stdout||"",data.stderr?"STDERR\n"+data.stderr:""].filter(Boolean).join("\n");
         eventCard({title:ev.message||kind,detail:data.detail||data.step||"",kind:["completed","success"].includes(kind)?"success":kind.includes("fail")?"info":kind.includes("start")||kind==="working"?"running":"info",command,output});
         if(data.files||data.changed_files){files=(data.files||data.changed_files).map(x=>typeof x==="string"?x:(x.path||JSON.stringify(x)));$("filesView").textContent=files.join("\n")||"Nenhum arquivo alterado informado."}
-        if(["completed","failed","cancelled"].includes(ev.status)){
+        if(["completed","failed","cancelled"].includes(kind)){
           const task=await fetch("/api/tasks/"+encodeURIComponent(taskId),{headers:{Authorization:"Bearer "+token}}).then(x=>x.json());
           if(task.result)addMessage("assistant",task.result);
           if(task.error)addMessage("assistant","A tarefa falhou: "+task.error);
