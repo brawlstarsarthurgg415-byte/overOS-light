@@ -128,7 +128,7 @@ def find_api_pids():
         pid=int(entry.name)
         if pid==os.getpid(): continue
         try:
-            cmd=(entry/"cmdline").read_bytes().replace(b"\\0",b" ")
+            cmd=(entry/"cmdline").read_bytes().replace(b"\0",b" ")
             if b"kelly_dual.api" in cmd and b"-m" in cmd:
                 found.append(pid)
         except (OSError,PermissionError):
