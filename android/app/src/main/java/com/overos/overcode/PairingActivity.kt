@@ -134,7 +134,7 @@ class PairingActivity : ComponentActivity() {
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("OVEROS CONTROL", color = pairAccent, style = MaterialTheme.typography.labelMedium)
+                            Text("MEU OVEROS", color = pairAccent, style = MaterialTheme.typography.labelMedium)
                             Text("Parear computador", color = Color.White, style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold)
                         }
