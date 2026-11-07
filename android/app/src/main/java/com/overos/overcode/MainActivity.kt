@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
                         },modifier=Modifier.fillMaxWidth()) { Text("Salvar conexão") }
                     }
                     LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=12.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                        if(messages.isEmpty()) item { Text("Converse com Kelly. Use /help para ver os comandos do OverCode.",color=Color.LightGray) }
+                        if(messages.isEmpty()) item { Text("Converse com Kelly. Para executar tarefas, o motor OverCode precisa estar conectado no servidor.",color=Color.LightGray) }
                         items(messages) { m ->
                             Surface(color=if(m.user) Color(0xFF26343B) else panel, shape=RoundedCornerShape(14.dp), modifier=Modifier.fillMaxWidth()) {
                                 Text(m.text,Modifier.padding(13.dp),color=Color.White)
