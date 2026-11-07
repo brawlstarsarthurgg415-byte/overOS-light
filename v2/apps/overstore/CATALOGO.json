@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "store": "OverStore",
+  "repository": "local",
+  "packages": [
+    {"id":"over-browser","name":"Over Browser","category":"Internet","version":null,"status":"planned"},
+    {"id":"over-files","name":"OverFiles","category":"Sistema","version":null,"status":"planned"},
+    {"id":"over-terminal","name":"OverTerminal","category":"Ferramentas","version":null,"status":"planned"},
+    {"id":"over-settings","name":"OverSettings","category":"Sistema","version":null,"status":"planned"},
+    {"id":"over-control","name":"OverControl","category":"Sistema","version":null,"status":"planned"},
+    {"id":"over-media","name":"OverMedia","category":"Multimídia","version":null,"status":"planned"},
+    {"id":"over-archive","name":"OverArchive","category":"Ferramentas","version":null,"status":"planned"}
+  ]
+}
