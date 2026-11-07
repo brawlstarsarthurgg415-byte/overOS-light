@@ -74,9 +74,13 @@ func randomID(n int) (string,error) {
 }
 
 func randomCode() (string,error) {
-	n,err:=rand.Int(rand.Reader,big.NewInt(1000000))
-	if err!=nil{return "",err}
-	return fmt.Sprintf("%06d",n.Int64()),nil
+	for {
+		n,err:=rand.Int(rand.Reader,big.NewInt(1000000))
+		if err!=nil{return "",err}
+		code:=fmt.Sprintf("%06d",n.Int64())
+		// Código usado na demonstração visual nunca é uma credencial real.
+		if code!="482917" { return code,nil }
+	}
 }
 
 func tokenHash(token string) string {
@@ -402,13 +406,22 @@ func localJSON(method,path string,body any)(map[string]any,error) {
 }
 
 func screen()error {
+	input:=make(chan string,4)
+	go func(){
+		scanner:=bufio.NewScanner(os.Stdin)
+		for scanner.Scan(){
+			line:=strings.TrimSpace(scanner.Text())
+			select{case input<-line:default:}
+		}
+	}()
 	for {
 		start,err:=localJSON(http.MethodPost,"/internal/pair/start",map[string]any{})
 		if err!=nil{
 			fmt.Print("\033[2J\033[H")
 			fmt.Println("                 OVEROS PAIR")
 			fmt.Println("Aguardando conexão de rede para gerar o QR Code...")
-			time.Sleep(3*time.Second)
+			fmt.Println("[ P + Enter ] Pular")
+			select{case line:=<-input:if strings.EqualFold(line,"p")||strings.EqualFold(line,"pular"){return nil};case <-time.After(3*time.Second):}
 			continue
 		}
 		session:=fmt.Sprint(start["session_id"])
@@ -428,8 +441,6 @@ func screen()error {
 		fmt.Println()
 		fmt.Println("       [ P + Enter ] Pular configuração do aplicativo")
 		fmt.Println("       O código só aparece depois da leitura válida.")
-		input:=make(chan string,1)
-		go func(){line,_:=bufio.NewReader(os.Stdin).ReadString('\n');input<-strings.TrimSpace(line)}()
 		shownCode:=""
 		ticker:=time.NewTicker(700*time.Millisecond)
 		done:=false
@@ -438,6 +449,7 @@ func screen()error {
 			case line:=<-input:
 				if strings.EqualFold(line,"p")||strings.EqualFold(line,"pular"){
 					_,_=localJSON(http.MethodPost,"/internal/pair/cancel",map[string]any{})
+					ticker.Stop()
 					fmt.Println("\nConfiguração ignorada. Continuando o OverOS...")
 					return nil
 				}
