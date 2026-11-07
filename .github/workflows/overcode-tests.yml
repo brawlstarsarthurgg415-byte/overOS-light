@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: "3.x"
       - name: Verificar instaladores
-        run: bash -n instalar-kelly-api.sh && bash tests/test-overia-code.sh
+        run: bash -n instalar-kelly-api.sh instalar-overcode-termux.sh && bash tests/test-overia-code.sh
       - name: Compilar API e orquestrador Kelly
         run: python -m py_compile kelly_dual/api.py kelly_dual/orchestrator.py kelly_dual/providers.py kelly_dual/sessions.py kelly_dual/executor.py kelly_dual/file_store.py
       - name: Testar orquestrador Kelly Dual
