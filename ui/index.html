@@ -20,6 +20,7 @@
       <div class="nav-label tools-label">FERRAMENTAS</div>
       <button class="nav-item" data-view="files"><span>⌘</span> Arquivos</button>
       <button class="nav-item" data-view="connectors"><span>⌁</span> Conectores</button>
+      <button class="nav-item" data-view="status"><span>◉</span> Status</button>
       <button class="nav-item" data-view="settings"><span>⚙</span> Configurações</button>
       <div class="sidebar-bottom"><div class="profile-dot">T</div><div><strong>OverOS</strong><small>Ambiente local</small></div><span class="online-dot"></span></div>
     </aside>
@@ -50,8 +51,10 @@
 
           <div class="composer-wrap">
             <div class="composer">
+              <input id="fileInput" type="file" multiple hidden>
+              <div class="attachment-list" id="attachmentList" aria-live="polite"></div>
               <textarea id="prompt" rows="1" placeholder="Converse com a Kelly... (use @code para delegar)" aria-label="Mensagem"></textarea>
-              <div class="composer-bottom"><div class="composer-tools"><button class="tool-btn" title="Anexar arquivo" aria-label="Anexar arquivo">＋</button><button class="tool-btn" id="voiceButton" title="Voz" aria-label="Voz">♩</button><span class="composer-hint">A Light responde; tarefas complexas vão para Code.</span></div><button class="send-btn" id="sendButton" aria-label="Enviar">↑</button></div>
+              <div class="composer-bottom"><div class="composer-tools"><button class="tool-btn" id="attachButton" title="Anexar arquivo" aria-label="Anexar arquivo">＋</button><button class="tool-btn live-button" id="voiceButton" title="Iniciar modo Live" aria-label="Iniciar modo Live">◉ Live</button><select id="voiceSelect" class="voice-select" aria-label="Voz da Kelly"><option value="">Voz automática</option></select><span id="voiceStatus" class="voice-status" role="status"></span><span class="composer-hint">A Light responde; tarefas complexas vão para Code.</span></div><button class="send-btn" id="sendButton" aria-label="Enviar">↑</button></div>
             </div>
             <div class="footnote">A Kelly pode cometer erros. Confira ações importantes antes de aprovar.</div>
           </div>
@@ -94,7 +97,7 @@
         </div>
         <div class="settings-note"><strong>Privacidade e segurança</strong><p>A API Key do provedor é gravada no servidor com permissão restrita ao usuário do serviço. Em uma publicação online, use HTTPS, mantenha o token da Kelly forte e não exponha a porta diretamente sem um proxy seguro.</p></div>
       </section>
-      <section class="simple-view hidden" id="simpleView"><div class="eyebrow">OVERCode WORKSPACE</div><h1 id="simpleTitle">Projetos</h1><p id="simpleDescription">Esta área será conectada ao motor do OverCode.</p></section>
+      <section class="simple-view hidden" id="simpleView"><div class="eyebrow">OVERCode WORKSPACE</div><h1 id="simpleTitle">Projetos</h1><p id="simpleDescription">Esta área será conectada ao motor do OverCode.</p><div id="simpleContent" class="simple-content"></div></section>
     </main>
   </div>
   <div class="toast" id="toast" role="status"></div>
