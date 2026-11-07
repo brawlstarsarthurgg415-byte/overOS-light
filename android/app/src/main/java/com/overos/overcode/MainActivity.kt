@@ -157,6 +157,29 @@ class MainActivity : ComponentActivity() {
                                         prefs.edit().putString("session_id", sessionId).apply()
                                         messages.add(ChatMessage(false, reply.first))
                                         status = "Kelly conectada"
+                                        if (reply.third.isNotBlank()) {
+                                            activeTaskId = reply.third
+                                            executionLog.clear()
+                                            executionLog.add("Kelly Code recebeu a tarefa " + reply.third.take(8))
+                                            scope.launch {
+                                                try {
+                                                    withContext(Dispatchers.IO) {
+                                                        streamTaskEvents(base, token, reply.third) { eventText, terminal ->
+                                                            scope.launch(Dispatchers.Main) {
+                                                                executionLog.add(eventText)
+                                                                if (terminal) {
+                                                                    activeTaskId = null
+                                                                    status = "Tarefa de Kelly Code finalizada"
+                                                                    messages.add(ChatMessage(false, eventText))
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                } catch (e: Exception) {
+                                                    executionLog.add("Eventos: " + e.message)
+                                                }
+                                            }
+                                        }
                                     } catch (e: Exception) {
                                         messages.add(ChatMessage(false, "Falha na conexão: ${e.message}\nConfira endereço, token e se a API está ligada."))
                                         status = "API indisponível"
@@ -212,7 +235,7 @@ class MainActivity : ComponentActivity() {
         return conn
     }
 
-    private fun postChat(base: String, token: String, message: String, sessionId: String): Pair<String, String> {
+    private fun postChat(base: String, token: String, message: String, sessionId: String): Triple<String, String, String> {
         val conn = authorizedConnection(base.trimEnd('/') + "/api/chat", token, "POST")
         try {
             conn.readTimeout = 60000
@@ -228,9 +251,10 @@ class MainActivity : ComponentActivity() {
             if (conn.responseCode !in 200..299) throw IllegalStateException(
                 JSONObject(body).optString("error", "HTTP ${conn.responseCode}"))
             val response = JSONObject(body)
-            return Pair(
+            return Triple(
                 response.optString("answer", "Kelly não retornou uma resposta."),
-                response.optString("session_id", sessionId)
+                response.optString("session_id", sessionId),
+                response.optString("task_id", "")
             )
         } finally { conn.disconnect() }
     }
