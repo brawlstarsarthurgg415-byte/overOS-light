@@ -73,8 +73,8 @@
       content.append(card("API local","Comunicação autenticada entre a interface, a Kelly e o servidor local.","Disponível"));
       content.append(card("Provedor de IA",(d.provider.configured?d.provider.name+" · "+d.provider.model:"Nenhuma chave de provedor configurada."),d.provider.configured?"Conectado":"Configurar"));
       content.append(card("Kelly Code",d.executor_configured?"Executor de tarefas configurado.":"O executor ainda precisa ser conectado ao motor de código.",d.executor_configured?"Ativo":"Pendente"));
-      content.append(card("Voz", "Reconhecimento e fala usam os recursos de voz do navegador. Áudio Live em streaming ainda não está integrado.", "Voz do dispositivo"));
-      content.append(card("Arquivos","Upload e download autenticados, limite de 8 MB por arquivo. Arquivos de texto podem ser incluídos no contexto da conversa.","Disponível"));
+      content.append(card("Voz", "Escolha entre as vozes instaladas no navegador ou dispositivo. O reconhecimento e a fala funcionam em modo Live; áudio bidirecional em streaming ainda não está integrado.", "Voz do dispositivo"));
+      content.append(card("Arquivos","Upload e download autenticados, limite de 12 MB por arquivo. Arquivos de texto podem ser incluídos no contexto da conversa.","Disponível"));
       const h=document.createElement("h3");h.textContent="Ferramentas expostas pela API";content.append(h);
       const list=document.createElement("div");list.className="tool-list";
       d.tools.forEach(t=>{const span=document.createElement("code");span.textContent=t;list.append(span)});content.append(list);
