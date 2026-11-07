@@ -8,6 +8,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.LocalFocusManager
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -33,12 +42,25 @@ class SystemActivity:ComponentActivity(){
   var message by remember{mutableStateOf("Conecte seu computador OverOS para ver os dados.")}
   var loading by remember{mutableStateOf(false)}
   val scope= rememberCoroutineScope()
+  val focusManager=LocalFocusManager.current
+  var keyboardEditing by remember{mutableStateOf(false)}
   fun refresh(){scope.launch{loading=true;message="Consultando o computador…";try{
    val credentials=PairingTokenStore.load(this@SystemActivity)?:throw IllegalStateException("Nenhum computador pareado. Toque em Conectar na tela inicial.")
    data=withContext(Dispatchers.IO){fetchStatus(credentials)};message="Conectado · dados atualizados"
   }catch(e:Exception){message=e.message?:"Não foi possível consultar o computador."}finally{loading=false}}}
   MaterialTheme(colorScheme=darkColorScheme(background=systemBg,surface=systemPanel,primary=systemAccent)){
-   Column(Modifier.fillMaxSize().background(systemBg).padding(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+   Column(Modifier.fillMaxSize().background(systemBg).padding(20.dp).onPreviewKeyEvent { event ->
+     if(event.type!=KeyEventType.KeyDown) return@onPreviewKeyEvent false
+     if(keyboardEditing) return@onPreviewKeyEvent false
+     when(event.key){
+      Key.DirectionDown->focusManager.moveFocus(FocusDirection.Down)
+      Key.DirectionUp->focusManager.moveFocus(FocusDirection.Up)
+      Key.DirectionLeft->focusManager.moveFocus(FocusDirection.Left)
+      Key.DirectionRight->focusManager.moveFocus(FocusDirection.Right)
+      Key.Tab->focusManager.moveFocus(if(event.isShiftPressed) FocusDirection.Previous else FocusDirection.Next)
+      else->false
+     }
+    },verticalArrangement=Arrangement.spacedBy(14.dp)){
     Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("MEU OVEROS",color=systemAccent,style=MaterialTheme.typography.labelMedium);Text("Meu computador",color=Color.White,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)};TextButton(onClick={finish()}){Text("Voltar")}}
     Text(message,color=Color(0xFFB8C6DC),style=MaterialTheme.typography.bodySmall)
     Button(onClick={refresh()},enabled=!loading,modifier=Modifier.fillMaxWidth()){Text(if(loading)"Atualizando…" else "Atualizar status")}
