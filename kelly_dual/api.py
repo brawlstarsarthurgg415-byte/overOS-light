@@ -86,7 +86,7 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
         def _body(self) -> dict:
             length = int(self.headers.get("Content-Length", "0"))
             if length < 1 or length > MAX_BODY:
-                raise ValueError("Corpo ausente ou maior que 64 KB.")
+                raise ValueError("Corpo ausente ou maior que 12 MB.")
             value = json.loads(self.rfile.read(length))
             if not isinstance(value, dict):
                 raise ValueError("O corpo precisa ser um objeto JSON.")
@@ -152,7 +152,7 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                 self._json(200, {
                     "api": "online",
                     "chat": True,
-                    "voice": {"browser_speech_recognition": True, "browser_speech_synthesis": True, "realtime_streaming": False},
+                    "voice": {"browser_speech_recognition": "browser-dependent", "browser_speech_synthesis": "browser-dependent", "realtime_streaming": False},
                     "files": {"upload": True, "download": True, "max_bytes": 8 * 1024 * 1024},
                     "provider": {"name": cfg.get("provider"), "model": cfg.get("model"), "configured": cfg.get("has_api_key", False)},
                     "executor_configured": bool(os.environ.get("KELLY_EXECUTOR")),
@@ -224,7 +224,7 @@ def make_handler(coordinator: TaskCoordinator, token: str, root: Path):
                             raise ValueError("Um dos anexos não existe mais.")
                         meta, _, raw_file = found
                         attachment_names.append(meta.get("name", "arquivo"))
-                        extracted = readable_text(meta, raw_file)
+                        extracted = readable_text(meta, raw_file, limit=30000)
                         if extracted is not None:
                             attachment_context.append(
                                 f"\n[CONTEÚDO DO ANEXO: {meta.get('name','arquivo')}]\n{extracted}\n[FIM DO ANEXO]"
