@@ -1,0 +1,12 @@
+set default=0
+set timeout=4
+
+menuentry 'OverOS Lite V2' {
+    search --no-floppy --label --set=root OVEROSBOOT
+    linux /vmlinuz root=LABEL=OVEROSROOT rootwait rw loglevel=3
+}
+
+menuentry 'OverOS Lite V2 - modo de recuperação' {
+    search --no-floppy --label --set=root OVEROSBOOT
+    linux /vmlinuz root=LABEL=OVEROSROOT rootwait rw init=/bin/sh loglevel=6
+}

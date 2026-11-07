@@ -1,0 +1,32 @@
+name: OverOS Lite V2 - verificações
+
+on:
+  push:
+    branches: [overos-lite-v2]
+    paths: ['v2/**', '.github/workflows/overos-v2-checks.yml']
+  pull_request:
+    branches: [overos-lite-v2]
+    paths: ['v2/**', '.github/workflows/overos-v2-checks.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar compilador musl
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Testes estáticos V2
+        run: python -m unittest discover -s v2/tests -v
+      - name: Validar JavaScript do painel
+        run: node --check v2/web-panel/app.js
+      - name: Compilar PID 1 estaticamente
+        run: musl-gcc -std=c11 -Os -Wall -Wextra -Werror -static -s -o /tmp/overos-init v2/init/overos-init.c
