@@ -423,7 +423,7 @@ func screen()error {
 			fmt.Println("                 OVEROS PAIR")
 			fmt.Println("Aguardando conexão de rede para gerar o QR Code...")
 			fmt.Println("[ P + Enter ] Pular")
-			select{case line:=<-input:if strings.EqualFold(line,"p")||strings.EqualFold(line,"pular"){return nil};case <-time.After(3*time.Second):}
+			select{case line:=<-input:if line==""||strings.EqualFold(line,"p")||strings.EqualFold(line,"pular"){return nil};case <-time.After(3*time.Second):}
 			continue
 		}
 		session:=fmt.Sprint(start["session_id"])
@@ -448,7 +448,7 @@ func screen()error {
 		for !done{
 			select{
 			case line:=<-input:
-				if strings.EqualFold(line,"p")||strings.EqualFold(line,"pular"){
+				if line==""||strings.EqualFold(line,"p")||strings.EqualFold(line,"pular"){
 					_,_=localJSON(http.MethodPost,"/internal/pair/cancel",map[string]any{})
 					ticker.Stop()
 					fmt.Println("\nConfiguração ignorada. Continuando o OverOS...")
