@@ -26,6 +26,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.LocalFocusManager
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -57,6 +66,8 @@ class MainActivity : ComponentActivity() {
         }
         val prefs = getSharedPreferences("overcode", MODE_PRIVATE)
         setContent {
+            val focusManager = LocalFocusManager.current
+            var keyboardEditing by remember { mutableStateOf(false) }
             var base by remember { mutableStateOf(prefs.getString("base", "http://127.0.0.1:8765") ?: "") }
             var token by remember { mutableStateOf(prefs.getString("token", "") ?: "") }
             var editing by remember { mutableStateOf(base.isBlank() || token.isBlank()) }
@@ -158,7 +169,20 @@ class MainActivity : ComponentActivity() {
             }
 
             MaterialTheme(colorScheme = darkColorScheme(background = bg, surface = panel, primary = cyan)) {
-                Column(Modifier.fillMaxSize().background(bg).padding(16.dp)) {
+                Column(Modifier.fillMaxSize().background(bg).padding(16.dp)\n                    .onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        if (keyboardEditing) return@onPreviewKeyEvent false
+                        when (event.key) {
+                            Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
+                            Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
+                            Key.DirectionLeft -> focusManager.moveFocus(FocusDirection.Left)
+                            Key.DirectionRight -> focusManager.moveFocus(FocusDirection.Right)
+                            Key.Tab -> focusManager.moveFocus(
+                                if (event.isShiftPressed) FocusDirection.Previous else FocusDirection.Next
+                            )
+                            else -> false
+                        }
+                    }) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.weight(1f)) {
                             Text("Meu OverOS", style = MaterialTheme.typography.titleLarge, color = Color.White)
@@ -189,7 +213,7 @@ class MainActivity : ComponentActivity() {
 
                     if (editing) {
                         OutlinedTextField(base, { base = it }, label = { Text("Endereço da Kelly API") },
-                            singleLine = true, modifier = Modifier.fillMaxWidth())
+                            singleLine = true, modifier = Modifier.fillMaxWidth().onFocusChanged { keyboardEditing = it.isFocused })
                         OutlinedTextField(token, { token = it }, label = { Text("Token da API") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
                         Button(onClick = {
@@ -300,7 +324,7 @@ class MainActivity : ComponentActivity() {
 
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
-                            input, { input = it }, modifier = Modifier.weight(1f),
+                            input, { input = it }, modifier = Modifier.weight(1f).onFocusChanged { keyboardEditing = it.isFocused },
                             placeholder = { Text(if (mode == AgentMode.KELLY) "Mensagem para Kelly…" else "Tarefa para Kelly Code…") },
                             maxLines = 4
                         )
