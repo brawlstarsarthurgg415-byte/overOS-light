@@ -87,6 +87,14 @@ O motor continua responsável por modelos, contexto, memória, planejamento, exe
 Este documento registra a arquitetura e a sequência de trabalho. Ele não significa que API, painel, APK, voz ou integração com o botão físico já estejam implementados ou testados.
 
 
+## Interface de atividade estilo Claude Code
+
+A pasta `ui/` contém uma prévia responsiva para site e futura incorporação em APK/WebView. Ela demonstra a composição da conversa com painel de atividade, linha do tempo, comandos e saídas. A demonstração é estática/simulada e não executa comandos reais.
+
+O contrato de eventos está documentado em `docs/KELLY-ACTIVITY-STREAM.md`. A integração final deverá transmitir eventos persistentes do motor para site e APK via API autenticada com SSE ou WebSocket. O terminal continua textual e leve.
+
+A preferência de "aceitar tudo" será limitada a aprovar em lote ações seguras já exibidas. Não haverá aprovação irrestrita para comandos destrutivos, privilegiados, instalações ou ações remotas.
+
 ## Família de modelos Kelly — estratégia de desenvolvimento
 
 A Kelly será uma família de modelos e serviços especializados, não um único arquivo de pesos usado para tudo. O objetivo é criar identidade, comportamento, ferramentas, avaliação e personalização próprios. Não afirmar que um modelo foi treinado do zero quando a base vier de pesos abertos.
