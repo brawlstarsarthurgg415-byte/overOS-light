@@ -433,8 +433,7 @@ func screen()error {
 		if err!=nil{return err}
 		qr,err:=qrcode.New(string(payload),qrcode.Medium)
 		if err!=nil{return err}
-		ascii,err:=qr.ToString(false)
-		if err!=nil{return err}
+		ascii:=qr.ToString(false)
 		fmt.Print("\033[2J\033[H")
 		fmt.Println("                 OVEROS PAIR")
 		fmt.Println("       Escaneie com o aplicativo OverOS Control")
