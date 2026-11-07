@@ -1,0 +1,38 @@
+# Tema visual OverOS para GRUB 2
+title-text: "OVEROS  /  LITE V2"
+title-color: "#eaf3ff"
+title-font: "DejaVu Sans Bold 18"
+desktop-color: "#080e1c"
+terminal-font: "DejaVu Sans Mono 12"
+terminal-box: "terminal_box_*.png"
++ boot_menu {
+  left = 18%
+  top = 34%
+  width = 64%
+  height = 38%
+  item_font = "DejaVu Sans 14"
+  item_color = "#a9bdd8"
+  selected_item_color = "#ffffff"
+  selected_item_pixmap_style = "select_*.png"
+  item_height = 42
+  item_padding = 10
+  item_spacing = 8
+}
++ label {
+  top = 18%
+  left = 0
+  width = 100%
+  align = "center"
+  text = "Seu computador. Seu sistema."
+  color = "#6daeff"
+  font = "DejaVu Sans 12"
+}
++ label {
+  top = 82%
+  left = 0
+  width = 100%
+  align = "center"
+  text = "ENTER iniciar   |   E editar   |   C terminal"
+  color = "#8195b2"
+  font = "DejaVu Sans 10"
+}
