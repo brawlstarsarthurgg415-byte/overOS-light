@@ -108,11 +108,11 @@ jobs:
           if [ ! -f /etc/overos/setup.conf ]; then
             /usr/share/overos/setup/firstboot.sh
           fi
-          SESSION=auto
+          session=auto
           if [ -f /etc/overos/setup.conf ]; then . /etc/overos/setup.conf; fi
           echo "Usuario configurado: ${username:-over}"
           echo "Utilitarios leves: overosctl"
-          if [ "$SESSION" != terminal ] && [ -x /usr/bin/over-shell ]; then
+          if [ "$session" != terminal ] && [ -x /usr/bin/over-shell ]; then
             echo "Iniciando a interface grafica OverOS..."
             /usr/bin/over-shell || echo "Framebuffer indisponivel; iniciando terminal."
           fi
