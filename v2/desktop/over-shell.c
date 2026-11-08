@@ -182,7 +182,42 @@ static int save_setup(const char *username,int mode,int pair) {
 }
 
 
+/* Antes do QR, tente configurar a rede no proprio terminal. */
+static void run_network_setup_if_needed(void) {
+  int has_route = (system("ip route show default 2>/dev/null | grep -q .") == 0);
+  if (has_route) return;
+
+  if (tty >= 0) ioctl(tty, KDSETMODE, KD_TEXT);
+  tcsetattr(STDIN_FILENO, TCSAFLUSH, &oldt);
+  printf("\n=== OVEROS: CONFIGURAR INTERNET ===\n");
+  printf("Nao foi encontrada uma rota de rede. Configure a conexao antes do QR.\n\n");
+
+  if (system("command -v nmtui >/dev/null 2>&1") == 0) {
+    printf("Abrindo o configurador de rede. Use as setas e Enter.\n");
+    (void)system("nmtui");
+  } else if (system("command -v nmcli >/dev/null 2>&1") == 0) {
+    printf("nmtui nao esta instalado; estado dos dispositivos:\n");
+    (void)system("nmcli device status");
+    printf("\nO QR sera adiado para que o sistema continue iniciando.\n");
+    printf("Pressione Enter para continuar...");
+    (void)getchar();
+  } else {
+    printf("O configurador de rede nao esta instalado nesta imagem.\n");
+    printf("O pareamento por QR sera ignorado nesta inicializacao.\n");
+    printf("Pressione Enter para continuar...");
+    (void)getchar();
+  }
+
+  struct termios raw = oldt;
+  raw.c_lflag &= ~(ICANON | ECHO);
+  raw.c_cc[VMIN] = 0;
+  raw.c_cc[VTIME] = 1;
+  tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+  if (tty >= 0) ioctl(tty, KDSETMODE, KD_GRAPHICS);
+}
+
 static void run_pair_screen(int *pair) {
+  run_network_setup_if_needed();
   const char *state_file="/mnt/overos-data/overos-data/pair/paired-devices.json";
   if(access("/usr/bin/over-pair",X_OK)!=0) {
     if(tty>=0)ioctl(tty,KDSETMODE,KD_TEXT);
