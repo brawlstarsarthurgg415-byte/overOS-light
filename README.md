@@ -3,7 +3,7 @@
 Uma edição especial do OverOS, com identidade **Over.ink**, feita para combinar Linux leve e aplicativo Android conectado. O primeiro alvo de hardware continua sendo o notebook **i30** (2008, ~730 MB de RAM, sem HD).
 Você grava no pendrive e **ele já é o sistema**: não tem instalador.
 
-> Base: Debian (64 bits). Interface: Openbox. Sistema rodando direto do pendrive (não é carregado na RAM).
+> Núcleo: kernel Linux amd64. O sistema de usuário é montado sob medida para o OverOS com pacotes Debian mínimos, pois o APT depende desse ecossistema. Não é uma imagem Debian Desktop pronta. Interface: Openbox. Sistema rodando direto do pendrive.
 
 ## Sistemas suportados
 
@@ -26,7 +26,7 @@ Você grava no pendrive e **ele já é o sistema**: não tem instalador.
   **Google Chrome não cabe nessa RAM.**
 - Vídeo: mpv (e yt-dlp para YouTube em 360p)
 - Terminal com `fastfetch`, `htop`, `btop`, `cmatrix`
-- Rede: NetworkManager (`nmtui` para conectar), firmware Wi-Fi Broadcom
+- Rede: NetworkManager (`nmtui` para conectar), APT pré-instalado, wpa_supplicant, ferramentas Wi-Fi e pacotes de firmware para chipsets comuns (Intel, Realtek, Atheros e Broadcom, conforme disponibilidade). Firmware proprietário Broadcom pode exigir download/instalação opcional e identificação exata do chipset.
 - Menu de testes: USB, webcam, microfone, caixinha, bateria, internet, RAM, temperatura, velocidade do pendrive
 
 ## Usuário e senha
@@ -127,7 +127,7 @@ para conferir o que funcionou de verdade no i30.
 
 - Atualizar o kernel dentro do sistema funciona (o GRUB usa `/vmlinuz` e `/initrd.img`), mas não há instalador nem atualização do GRUB.
 - A entrada de teste de RAM do GRUB (memtest86+) pode precisar de ajuste; o teste `memtester` do menu funciona independentemente.
-- Wi-Fi Broadcom: o firmware `b43` é baixado na hora de gerar a imagem. Se falhar, aparece em `work/avisos.txt`.
+- Firmware Wi-Fi: os pacotes são tentados individualmente durante a construção. O pacote Broadcom `firmware-b43-installer` é opcional e pode exigir internet e firmware externo; não há garantia sem identificar o chipset real do i30.
 
 
 ## OverCode / Kelly
