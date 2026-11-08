@@ -1,6 +1,6 @@
-# OverOS Light Version
+# OverOS Custom — edição Over.ink
 
-Um Linux bem leve, feito para o notebook **i30** (2008, ~730 MB de RAM, sem HD).
+Uma edição especial do OverOS, com identidade **Over.ink**, feita para combinar Linux leve e aplicativo Android conectado. O primeiro alvo de hardware continua sendo o notebook **i30** (2008, ~730 MB de RAM, sem HD).
 Você grava no pendrive e **ele já é o sistema**: não tem instalador.
 
 > Base: Debian (64 bits). Interface: Openbox. Sistema rodando direto do pendrive (não é carregado na RAM).
@@ -12,6 +12,13 @@ Você grava no pendrive e **ele já é o sistema**: não tem instalador.
 | Notebook i30 (BIOS antiga, 64 bits) | Alvo principal desta versão. **Ainda não testado.** |
 | PC de mesa com BIOS/Legacy ou "CSM" ligado | Deve funcionar, não testado |
 | PC/tablet só UEFI com Secure Boot (ex.: o tablet com Windows 10) | **Não suportado** nesta versão |
+
+## Identidade OverOS Custom
+
+- Marca: **Over.ink** · edição: **OverOS Custom**.
+- Paleta: roxo neon, azul elétrico e ciano sobre fundo escuro.
+- Slogan: “Sua experiência, do seu jeito.”
+- O aplicativo Android e o ambiente Linux compartilham a mesma API Kelly; a conexão remota deve usar túnel SSH, sem expor a API diretamente à rede.
 
 ## O que vem dentro
 
