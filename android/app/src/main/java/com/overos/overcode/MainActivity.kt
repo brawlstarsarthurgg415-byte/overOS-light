@@ -186,10 +186,11 @@ class MainActivity : ComponentActivity() {
                     }
 
                     if (editing) {
-                        OutlinedTextField(base, { base = it }, label = { Text("Endereço da Kelly API") },
+                        OutlinedTextField(base, { base = it }, label = { Text("API local (túnel SSH)") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(token, { token = it }, label = { Text("Token da API") },
                             singleLine = true, modifier = Modifier.fillMaxWidth())
+                        Text("No celular, mantenha o túnel SSH ativo para o notebook. Endereço padrão: http://127.0.0.1:8765. A porta da API não fica exposta na rede.", color = cyan, style = MaterialTheme.typography.bodySmall)
                         Button(onClick = {
                             prefs.edit().putString("base", base.trim().trimEnd('/'))
                                 .putString("token", token.trim()).apply()
