@@ -36,9 +36,10 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-private val bg = Color(0xFF101218)
-private val panel = Color(0xFF1A1F29)
-private val cyan = Color(0xFF69D9DC)
+private val bg = Color(0xFF10091D)
+private val panel = Color(0xFF211433)
+private val cyan = Color(0xFF42DFFF)
+private val violet = Color(0xFFC04DFF)
 
 private data class ChatMessage(val fromUser: Boolean, val text: String)
 private data class UploadedFile(val id: String, val name: String)
