@@ -285,16 +285,44 @@ static int run_setup(void) {
   return 0;
 }
 
+/* Fallback de emergencia: terminal leve, sem framebuffer nem aceleracao. */
+static int run_text_fallback(void) {
+  for (;;) {
+    printf("\n=== OVEROS LITE - MODO DE RECUPERACAO ===\n");
+    printf("A interface grafica falhou; o sistema continua utilizavel.\n\n");
+    printf("1) Configurar rede (nmtui)\n");
+    printf("2) Ver interfaces de rede\n");
+    printf("0) Continuar no terminal\n");
+    printf("Opcao: ");
+    fflush(stdout);
+    char line[32];
+    if (!fgets(line, sizeof(line), stdin)) return 0;
+    if (line[0]=='1') {
+      if (system("command -v nmtui >/dev/null 2>&1") == 0)
+        (void)system("nmtui");
+      else {
+        printf("nmtui nao instalado. Interfaces atuais:\n");
+        (void)system("ip link 2>/dev/null || ifconfig 2>/dev/null || true");
+        printf("A imagem precisa incluir NetworkManager e network-manager-tui.\n");
+      }
+    } else if (line[0]=='2') {
+      (void)system("ip link 2>/dev/null || ifconfig 2>/dev/null || true");
+      printf("\nPressione Enter para voltar...");
+      (void)fgets(line, sizeof(line), stdin);
+    } else if (line[0]=='0') return 0;
+  }
+}
+
 int main(int argc,char **argv) {
   fb=open("/dev/fb0",O_RDWR);
-  if(fb<0){ dprintf(2,"OverOS Shell: /dev/fb0 indisponivel: %s\n",strerror(errno)); return 2; }
-  if(ioctl(fb,FBIOGET_FSCREENINFO,&fi)||ioctl(fb,FBIOGET_VSCREENINFO,&vi)){dprintf(2,"OverOS Shell: framebuffer invalido\n");return 2;}
+  if(fb<0){ dprintf(2,"OverOS Shell: /dev/fb0 indisponivel: %s\n",strerror(errno)); return run_text_fallback(); }
+  if(ioctl(fb,FBIOGET_FSCREENINFO,&fi)||ioctl(fb,FBIOGET_VSCREENINFO,&vi)){dprintf(2,"OverOS Shell: framebuffer invalido\n");close(fb); fb=-1; return run_text_fallback();}
   W=vi.xres; H=vi.yres; bpp=vi.bits_per_pixel; mapsz=fi.smem_len;
-  if(W<320||H<200||(bpp!=16&&bpp!=24&&bpp!=32)){dprintf(2,"OverOS Shell: modo grafico nao suportado (%dx%d %dbpp)\n",W,H,bpp);return 2;}
+  if(W<320||H<200||(bpp!=16&&bpp!=24&&bpp!=32)){dprintf(2,"OverOS Shell: modo grafico nao suportado (%dx%d %dbpp)\n",W,H,bpp);close(fb); fb=-1; return run_text_fallback();}
   mem=mmap(NULL,mapsz,PROT_READ|PROT_WRITE,MAP_SHARED,fb,0);
-  if(mem==MAP_FAILED){dprintf(2,"OverOS Shell: mmap falhou\n");return 2;}
+  if(mem==MAP_FAILED){dprintf(2,"OverOS Shell: mmap falhou\n");mem=NULL; close(fb); fb=-1; return run_text_fallback();}
   backbuf=calloc(1,(size_t)mapsz);
-  if(!backbuf){dprintf(2,"OverOS Shell: memoria de desenho insuficiente\\n");cleanup();return 2;}
+  if(!backbuf){dprintf(2,"OverOS Shell: memoria de desenho insuficiente\\n");cleanup();return run_text_fallback();}
   tty=open("/dev/tty0",O_RDWR|O_NOCTTY);
   if(tty>=0){ioctl(tty,KDGETMODE,&old_graphics);ioctl(tty,KDSETMODE,KD_GRAPHICS);}
   if(tcgetattr(STDIN_FILENO,&oldt)==0){struct termios raw=oldt;raw.c_lflag&=~(ICANON|ECHO);raw.c_cc[VMIN]=0;raw.c_cc[VTIME]=1;tcsetattr(STDIN_FILENO,TCSAFLUSH,&raw);}
