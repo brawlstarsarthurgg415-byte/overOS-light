@@ -189,10 +189,10 @@ rsync -a --chown=root:root "$AQUI/overlay/" "$MNT/"
 
 # Kelly API + interface web: instaladas no sistema e iniciadas no primeiro boot.
 install -d -m 0755 "$MNT/opt/overcode"
-rsync -a --chown=root:overos "$AQUI/kelly_dual/" "$MNT/opt/overcode/kelly_dual/"
-rsync -a --chown=root:overos "$AQUI/ui/" "$MNT/opt/overcode/ui/"
-install -d -m 0750 -o root -g overos "$MNT/etc/overcode"
-install -d -m 0750 -o overos -g overos "$MNT/home/overos/OverCodeProjects"
+rsync -a "$AQUI/kelly_dual/" "$MNT/opt/overcode/kelly_dual/"
+rsync -a "$AQUI/ui/" "$MNT/opt/overcode/ui/"
+install -d -m 0755 "$MNT/etc/overcode"
+install -d -m 0755 "$MNT/home/overos/OverCodeProjects"
 cat > "$MNT/usr/local/sbin/overos-api-init" <<'EOF'
 #!/bin/sh
 set -eu
@@ -200,7 +200,7 @@ install -d -m 0750 -o root -g overos /etc/overcode
 if [ ! -s /etc/overcode/kelly.env ]; then
   TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
   umask 077
-  printf 'KELLY_API_TOKEN=%s\\nKELLY_API_HOST=127.0.0.1\\nKELLY_API_PORT=8765\\nOVEROS_PROJECT_ROOT=/home/overos/OverCodeProjects\\nKELLY_EXECUTOR=kelly_dual.executor:execute_task\\n' "$TOKEN" > /etc/overcode/kelly.env
+  printf 'KELLY_API_TOKEN=%s\nKELLY_API_HOST=127.0.0.1\nKELLY_API_PORT=8765\nOVEROS_PROJECT_ROOT=/home/overos/OverCodeProjects\nKELLY_EXECUTOR=kelly_dual.executor:execute_task\n' "$TOKEN" > /etc/overcode/kelly.env
   chown root:overos /etc/overcode/kelly.env
   chmod 0640 /etc/overcode/kelly.env
 fi
@@ -282,6 +282,11 @@ for g in sudo audio video plugdev netdev cdrom dialout adm bluetooth; do
 done
 no_chroot useradd -m -s /bin/bash -G "$GRUPOS" "$USUARIO"
 echo "$USUARIO:$SENHA" | no_chroot chpasswd
+chown -R overos:overos "$MNT/opt/overcode"
+install -d -m 0700 -o overos -g overos "$MNT/home/overos/.overos"
+install -d -m 0750 -o overos -g overos "$MNT/home/overos/OverCodeProjects"
+chown root:overos "$MNT/etc/overcode"
+chmod 0750 "$MNT/etc/overcode"
 # A senha inicial documentada e temporaria: exigir troca no primeiro login.
 no_chroot chage -d 0 "$USUARIO"
 no_chroot passwd -l root >/dev/null
