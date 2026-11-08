@@ -1,0 +1,30 @@
+name: Testar shell nativo V2
+
+on:
+  push:
+    branches:
+      - overos-lite-v2
+    paths:
+      - "v2/desktop/over-shell.c"
+      - ".github/workflows/test-v2-shell.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-shell:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+      - name: Compilar shell framebuffer e fallback
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra \
+            v2/desktop/over-shell.c -o over-shell
+          file over-shell
+      - name: Guardar binario de teste
+        uses: actions/upload-artifact@v4
+        with:
+          name: overos-v2-shell-test
+          path: over-shell
