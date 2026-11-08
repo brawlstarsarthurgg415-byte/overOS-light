@@ -39,6 +39,7 @@ KELLY_API_TOKEN=$TOKEN
 KELLY_API_HOST=127.0.0.1
 KELLY_API_PORT=8765
 OVEROS_PROJECT_ROOT=/home/$RUN_USER/OverCodeProjects
+KELLY_EXECUTOR=kelly_dual.executor:execute_task
 EOF
   chmod 600 "$ENV_FILE"
 else
@@ -76,6 +77,8 @@ sleep 2
 if systemctl is-active --quiet kelly-api; then
   echo
   echo "[OK] Kelly API instalada e ativa em http://127.0.0.1:8765"
+  echo "Executor Kelly Code: kelly_dual.executor:execute_task"
+  echo "Para o APK no celular, use um túnel SSH local (veja README). Não exponha a porta 8765 na rede."
   echo "A interface web é servida pelo mesmo endereço."
   echo "Token guardado em $ENV_FILE (permissão 600)."
   echo "Para ver o token: sudo cat $ENV_FILE"
