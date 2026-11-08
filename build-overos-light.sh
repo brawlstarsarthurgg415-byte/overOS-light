@@ -158,6 +158,7 @@ NUCLEO=(
   systemd-sysv udev dbus sudo locales console-setup keyboard-configuration kbd
   e2fsprogs cloud-guest-utils util-linux less nano procps
   network-manager wpasupplicant iw rfkill iputils-ping
+  openssh-client openssh-server
   xserver-xorg-core xserver-xorg-input-libinput xserver-xorg-video-all
   xinit x11-xserver-utils x11-xkb-utils xdotool openbox tint2 lxterminal fonts-dejavu-core
   netsurf-gtk mpv alsa-utils
@@ -219,10 +220,24 @@ for g in sudo audio video plugdev netdev cdrom dialout adm bluetooth; do
 done
 no_chroot useradd -m -s /bin/bash -G "$GRUPOS" "$USUARIO"
 echo "$USUARIO:$SENHA" | no_chroot chpasswd
+# A senha inicial documentada e temporaria: exigir troca no primeiro login.
+no_chroot chage -d 0 "$USUARIO"
 no_chroot passwd -l root >/dev/null
+
+# SSH: cliente e servidor instalados; acesso remoto por senha somente apos
+# a troca obrigatoria da senha inicial. Login direto de root fica bloqueado.
+mkdir -p "$MNT/etc/ssh/sshd_config.d"
+cat > "$MNT/etc/ssh/sshd_config.d/overos.conf" <<'EOF'
+PermitRootLogin no
+PasswordAuthentication yes
+KbdInteractiveAuthentication yes
+UsePAM yes
+X11Forwarding no
+EOF
 
 no_chroot systemctl enable overos-growfs.service
 no_chroot systemctl enable NetworkManager.service
+no_chroot systemctl enable ssh.service
 no_chroot systemctl enable zramswap.service || echo "AVISO: zramswap não habilitou" | tee -a "$AVISOS"
 no_chroot systemctl enable bluetooth.service || echo "AVISO: bluetooth não habilitou (pacote bluez não foi instalado?)" | tee -a "$AVISOS"
 
