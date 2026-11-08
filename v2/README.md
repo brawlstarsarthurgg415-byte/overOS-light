@@ -16,6 +16,20 @@ A V2 fica isolada em `v2/`; os arquivos da V1 são preservados para consulta e r
 
 O i30 é o alvo de validação, não uma máquina presumida. Não declarar suporte a GPU, Wi-Fi, áudio, BIOS ou aceleração sem inventário e teste no aparelho. A V2 deve iniciar em modo gráfico básico mesmo quando composição/aceleração não estiverem disponíveis.
 
+
+## Perfil do Intelbras i30 (manual do projeto)
+
+O manual do aparelho informa cerca de **730 MB de RAM DDR2**, arquitetura de 64 bits e Wi-Fi Broadcom que depende do firmware **b43**. O interruptor físico de Wi-Fi também precisa estar ligado. Esses dados orientam a configuração, mas o reconhecimento real ainda precisa ser validado no notebook.
+
+- Priorizar modo texto e shell framebuffer; não exigir compositor, navegador ou aceleração 3D para iniciar.
+- Se o framebuffer falhar, permanecer em um menu de recuperação de terminal.
+- Antes do QR de pareamento, oferecer configuração de rede quando não houver rota padrão.
+- A imagem completa precisa incluir NetworkManager, network-manager-tui (comando nmtui), wpasupplicant, firmware b43 e openssh-server.
+- Para o Wi-Fi Broadcom, o firmware precisa estar presente na imagem; só instalar nmtui não resolve uma placa sem firmware.
+- Testar primeiro por cabo ou tethering USB se o Wi-Fi não subir; não declarar o driver funcional sem teste físico.
+
+**Limite atual:** a V2 ainda não possui um gerador de imagem inicializável integrado. O workflow adicionado nesta etapa verifica a compilação do shell nativo, não gera sozinho uma nova imagem .img.
+
 ## Estado
 
 Esta pasta é o início isolado da V2. Ainda não é uma imagem inicializável nem um instalador. O build só será chamado de pronto depois de gerar a `.img`, validar partições/boot e executar testes no i30 físico.
