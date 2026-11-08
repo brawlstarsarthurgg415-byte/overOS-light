@@ -95,10 +95,10 @@ mkfs.ext4 -F -L "$ROTULO" -m 1 "$PART" >/dev/null
 mount "$PART" "$MNT"
 
 # ------------------------------------------------------- 2. sistema base
-msg "3/9 Baixando o Debian $SUITE (demora; precisa de internet)"
+msg "3/9 Montando o sistema mínimo OverOS (pacotes base Debian $SUITE; precisa de internet)"
 debootstrap --arch=amd64 --variant=minbase \
   --components=main,contrib,non-free,non-free-firmware \
-  --include=ca-certificates,gnupg \
+  --include=apt,ca-certificates,gnupg,locales,initramfs-tools \
   "$SUITE" "$MNT" "$MIRROR"
 
 msg "4/9 Configurando o sistema"
@@ -143,7 +143,7 @@ mount -t proc proc    "$MNT/proc"
 mount -t sysfs sys    "$MNT/sys"
 
 # ------------------------------------------------------- 3. pacotes
-msg "5/9 Instalando kernel e programas (a parte mais demorada)"
+msg "5/9 Instalando kernel Linux, APT, rede, firmware e ferramentas essenciais"
 for tentativa in 1 2 3; do
   no_chroot apt-get update && break
   [ "$tentativa" -lt 3 ] || erro "APT não conseguiu atualizar os índices. Confira a internet e a data/hora do computador que está construindo a imagem."
@@ -161,9 +161,8 @@ no_chroot apt-get install -y --no-install-recommends linux-image-amd64
 NUCLEO=(
   systemd-sysv udev dbus sudo locales console-setup keyboard-configuration kbd
   e2fsprogs cloud-guest-utils util-linux less nano procps
-  network-manager wpasupplicant iw rfkill iputils-ping
+  apt network-manager wpasupplicant iw rfkill iputils-ping
   openssh-client openssh-server python3 git curl ca-certificates
-  b43-fwcutter firmware-b43-installer
   xserver-xorg-core xserver-xorg-input-libinput xserver-xorg-video-all
   xinit x11-xserver-utils x11-xkb-utils xdotool openbox tint2 lxterminal fonts-dejavu-core
   netsurf-gtk mpv alsa-utils
@@ -174,8 +173,9 @@ no_chroot apt-get install -y --no-install-recommends "${NUCLEO[@]}"
 
 OPCIONAIS=(
   fastfetch btop cmatrix yt-dlp pulseaudio pcmanfm libgl1-mesa-dri
-  b43-fwcutter firmware-b43-installer firmware-brcm80211 firmware-misc-nonfree
-  firmware-linux-free memtest86+ xterm blueman pulseaudio-module-bluetooth
+  firmware-linux-free firmware-linux firmware-iwlwifi firmware-realtek
+  firmware-atheros firmware-brcm80211 firmware-misc-nonfree
+  b43-fwcutter firmware-b43-installer memtest86+ xterm blueman pulseaudio-module-bluetooth
   bluez pulseaudio-module-bluetooth
 )
 instalar_opcional "${OPCIONAIS[@]}"
