@@ -144,7 +144,11 @@ mount -t sysfs sys    "$MNT/sys"
 
 # ------------------------------------------------------- 3. pacotes
 msg "5/9 Instalando kernel e programas (a parte mais demorada)"
-no_chroot apt-get update
+for tentativa in 1 2 3; do
+  no_chroot apt-get update && break
+  [ "$tentativa" -lt 3 ] || erro "APT não conseguiu atualizar os índices. Confira a internet e a data/hora do computador que está construindo a imagem."
+  sleep 5
+done
 no_chroot apt-get install -y --no-install-recommends initramfs-tools
 
 # initramfs com todos os drivers de USB/disco, para o boot do pendrive funcionar
@@ -158,7 +162,8 @@ NUCLEO=(
   systemd-sysv udev dbus sudo locales console-setup keyboard-configuration kbd
   e2fsprogs cloud-guest-utils util-linux less nano procps
   network-manager wpasupplicant iw rfkill iputils-ping
-  openssh-client openssh-server
+  openssh-client openssh-server python3 git curl ca-certificates
+  b43-fwcutter firmware-b43-installer
   xserver-xorg-core xserver-xorg-input-libinput xserver-xorg-video-all
   xinit x11-xserver-utils x11-xkb-utils xdotool openbox tint2 lxterminal fonts-dejavu-core
   netsurf-gtk mpv alsa-utils
@@ -181,6 +186,63 @@ fi
 # ------------------------------------------------------- 4. arquivos do OverOS
 msg "6/9 Copiando os arquivos do OverOS (menu de testes, interface, ajustes)"
 rsync -a --chown=root:root "$AQUI/overlay/" "$MNT/"
+
+# Kelly API + interface web: instaladas no sistema e iniciadas no primeiro boot.
+install -d -m 0755 "$MNT/opt/overcode"
+rsync -a --chown=root:overos "$AQUI/kelly_dual/" "$MNT/opt/overcode/kelly_dual/"
+rsync -a --chown=root:overos "$AQUI/ui/" "$MNT/opt/overcode/ui/"
+install -d -m 0750 -o root -g overos "$MNT/etc/overcode"
+install -d -m 0750 -o overos -g overos "$MNT/home/overos/OverCodeProjects"
+cat > "$MNT/usr/local/sbin/overos-api-init" <<'EOF'
+#!/bin/sh
+set -eu
+install -d -m 0750 -o root -g overos /etc/overcode
+if [ ! -s /etc/overcode/kelly.env ]; then
+  TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
+  umask 077
+  printf 'KELLY_API_TOKEN=%s\\nKELLY_API_HOST=127.0.0.1\\nKELLY_API_PORT=8765\\nOVEROS_PROJECT_ROOT=/home/overos/OverCodeProjects\\nKELLY_EXECUTOR=kelly_dual.executor:execute_task\\n' "$TOKEN" > /etc/overcode/kelly.env
+  chown root:overos /etc/overcode/kelly.env
+  chmod 0640 /etc/overcode/kelly.env
+fi
+EOF
+chmod 0755 "$MNT/usr/local/sbin/overos-api-init"
+cat > "$MNT/etc/systemd/system/overos-api-init.service" <<'EOF'
+[Unit]
+Description=Gerar token local da Kelly API no primeiro boot
+Before=kelly-api.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/overos-api-init
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+cat > "$MNT/etc/systemd/system/kelly-api.service" <<'EOF'
+[Unit]
+Description=OverOS Kelly API
+After=network-online.target overos-api-init.service
+Wants=network-online.target
+Requires=overos-api-init.service
+
+[Service]
+Type=simple
+User=overos
+Group=overos
+WorkingDirectory=/opt/overcode
+EnvironmentFile=/etc/overcode/kelly.env
+ExecStart=/usr/bin/python3 -m kelly_dual.api
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/home/overos/.overos /home/overos/OverCodeProjects
+
+[Install]
+WantedBy=multi-user.target
+EOF
 chmod 0755 "$MNT/usr/local/bin/overos-testes" "$MNT/usr/local/sbin/overos-growfs" \
   "$MNT/usr/local/bin/overos" "$MNT/usr/local/bin/overos-telas" "$MNT/usr/local/bin/overos-cobrinha"
 chmod 0440 "$MNT"/etc/sudoers.d/overos
@@ -238,6 +300,8 @@ EOF
 no_chroot systemctl enable overos-growfs.service
 no_chroot systemctl enable NetworkManager.service
 no_chroot systemctl enable ssh.service
+no_chroot systemctl enable overos-api-init.service
+no_chroot systemctl enable kelly-api.service
 no_chroot systemctl enable zramswap.service || echo "AVISO: zramswap não habilitou" | tee -a "$AVISOS"
 no_chroot systemctl enable bluetooth.service || echo "AVISO: bluetooth não habilitou (pacote bluez não foi instalado?)" | tee -a "$AVISOS"
 
